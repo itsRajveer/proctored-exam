@@ -21,12 +21,15 @@ const mockExams = [
   { id: "e2", title: "Introduction to Physics" },
 ];
 
+// Adding explicit type for student status
+type StudentStatus = "active" | "warning" | "flagged" | "offline";
+
 const mockStudents = [
-  { id: "s1", name: "John Doe", violations: 0, status: "active" },
-  { id: "s2", name: "Jane Smith", violations: 2, status: "warning" },
-  { id: "s3", name: "Michael Brown", violations: 0, status: "active" },
-  { id: "s4", name: "Emily Johnson", violations: 5, status: "flagged" },
-  { id: "s5", name: "David Wilson", violations: 1, status: "active" },
+  { id: "s1", name: "John Doe", violations: 0, status: "active" as StudentStatus },
+  { id: "s2", name: "Jane Smith", violations: 2, status: "warning" as StudentStatus },
+  { id: "s3", name: "Michael Brown", violations: 0, status: "active" as StudentStatus },
+  { id: "s4", name: "Emily Johnson", violations: 5, status: "flagged" as StudentStatus },
+  { id: "s5", name: "David Wilson", violations: 1, status: "active" as StudentStatus },
 ];
 
 interface StudentCardProps {
@@ -34,7 +37,7 @@ interface StudentCardProps {
     id: string;
     name: string;
     violations: number;
-    status: "active" | "warning" | "flagged" | "offline";
+    status: StudentStatus;
   };
   onView: (id: string) => void;
   isExpanded: boolean;
@@ -96,7 +99,7 @@ const StudentCard: React.FC<StudentCardProps> = ({ student, onView, isExpanded }
 export const StudentMonitor: React.FC = () => {
   const { toast } = useToast();
   const [selectedExam, setSelectedExam] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | StudentStatus>("all");
   const [expandedStudentId, setExpandedStudentId] = useState("");
   const [alertsEnabled, setAlertsEnabled] = useState(true);
 
@@ -159,7 +162,7 @@ export const StudentMonitor: React.FC = () => {
         <div className="flex items-center space-x-2 ml-auto">
           <Filter className="h-4 w-4 text-muted-foreground" />
           <span>Filter:</span>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <Select value={filterStatus} onValueChange={setFilterStatus as (value: string) => void}>
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
