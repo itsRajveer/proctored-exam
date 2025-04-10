@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, Link } from "react-router-dom";
 import {
   BookOpen,
   Calendar,
@@ -26,34 +26,34 @@ const StudentMenu = () => (
   <SidebarMenu>
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
-        <a href="/dashboard">
-          <Home />
+        <Link to="/dashboard">
+          <Home className="h-5 w-5" />
           <span>Dashboard</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
-        <a href="/dashboard/exams">
-          <FileText />
+        <Link to="/dashboard/exams">
+          <FileText className="h-5 w-5" />
           <span>Exams</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
-        <a href="/dashboard/grades">
-          <GraduationCap />
+        <Link to="/dashboard/grades">
+          <GraduationCap className="h-5 w-5" />
           <span>Grades</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
-        <a href="/dashboard/calendar">
-          <Calendar />
+        <Link to="/dashboard/calendar">
+          <Calendar className="h-5 w-5" />
           <span>Calendar</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
   </SidebarMenu>
@@ -63,42 +63,42 @@ const TeacherMenu = () => (
   <SidebarMenu>
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
-        <a href="/dashboard">
-          <Home />
+        <Link to="/dashboard">
+          <Home className="h-5 w-5" />
           <span>Dashboard</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
-        <a href="/dashboard/classes">
-          <Users />
+        <Link to="/dashboard/classes">
+          <Users className="h-5 w-5" />
           <span>Classes</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
-        <a href="/dashboard/exams">
-          <FileText />
+        <Link to="/dashboard/exams">
+          <FileText className="h-5 w-5" />
           <span>Exams</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
-        <a href="/dashboard/monitoring">
-          <Video />
+        <Link to="/dashboard/monitoring">
+          <Video className="h-5 w-5" />
           <span>Monitoring</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
-        <a href="/dashboard/calendar">
-          <Calendar />
+        <Link to="/dashboard/calendar">
+          <Calendar className="h-5 w-5" />
           <span>Calendar</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
   </SidebarMenu>
@@ -108,7 +108,14 @@ export const DashboardLayout = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <BookOpen className="h-12 w-12 animate-pulse text-primary" />
+          <p className="text-lg font-medium">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
@@ -129,9 +136,9 @@ export const DashboardLayout = () => {
               {user.role === "student" ? <StudentMenu /> : <TeacherMenu />}
             </SidebarContent>
           </Sidebar>
-          <div className="flex-1">
-            <div className="container py-6">
-              <SidebarTrigger className="lg:hidden mb-4" />
+          <div className="flex-1 bg-background/95">
+            <div className="container max-w-7xl px-4 py-6 md:px-6 lg:py-8">
+              <SidebarTrigger className="mb-4 lg:hidden" />
               <Outlet />
             </div>
           </div>
