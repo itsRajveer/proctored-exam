@@ -26,6 +26,15 @@ import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Exam, Question } from "@/types";
 
+// Define a type for student grades to match what's expected in mockStudentSubmissions
+type StudentGrades = {
+  q1: number;
+  q2: number;
+  q3: number;
+  q4: number;
+  q5: number;
+};
+
 // Mock exam data (same as in ExamView but with student answers)
 const mockExam: Exam = {
   id: "e1",
@@ -98,7 +107,7 @@ const mockStudentSubmissions = [
       q3: 8,
       q4: 5,
       q5: 0,
-    },
+    } as StudentGrades,
     status: "submitted",
     submittedAt: "2025-04-10T14:30:00Z",
   },
@@ -120,7 +129,7 @@ const mockStudentSubmissions = [
       q3: 10,
       q4: 5,
       q5: 5,
-    },
+    } as StudentGrades,
     status: "submitted",
     submittedAt: "2025-04-10T15:15:00Z",
   },
@@ -142,7 +151,7 @@ const mockStudentSubmissions = [
       q3: 3,
       q4: 0,
       q5: 0,
-    },
+    } as StudentGrades,
     status: "submitted",
     submittedAt: "2025-04-10T14:45:00Z",
   },
@@ -158,7 +167,13 @@ export const ExamReview: React.FC = () => {
   const [students, setStudents] = useState<typeof mockStudentSubmissions>([]);
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [currentGrades, setCurrentGrades] = useState<Record<string, number>>({});
+  const [currentGrades, setCurrentGrades] = useState<StudentGrades>({
+    q1: 0,
+    q2: 0,
+    q3: 0,
+    q4: 0,
+    q5: 0
+  });
   const [feedback, setFeedback] = useState("");
 
   // Load exam data
@@ -594,3 +609,4 @@ export const ExamReview: React.FC = () => {
 };
 
 export default ExamReview;
+
