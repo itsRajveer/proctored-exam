@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Route, Routes } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -164,13 +165,12 @@ const Dashboard = () => {
         />
         
         {/* Student Routes */}
-        <Route path="exams" element={<ExamList />} />
+        <Route path="exams" element={user?.role === "student" ? <ExamList /> : <ExamCreator />} />
         <Route path="exam/:id" element={<ExamView />} />
         <Route path="grades" element={<GradesList />} />
         
         {/* Teacher Routes */}
         <Route path="classes" element={<ClassManagement />} />
-        <Route path="exams" element={<ExamCreator />} />
         <Route path="exam/:id/review" element={<ExamReview />} />
         <Route path="monitoring" element={<StudentMonitor />} />
       </Route>
