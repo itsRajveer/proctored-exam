@@ -153,7 +153,7 @@ export const ExamCreator: React.FC = () => {
   const { toast } = useToast();
   
   // State for tabs
-  const [activeTab, setActiveTab] = useState("create");
+  const [activeTab, setActiveTab] = useState("list");
   
   // State for exam creation
   const [examTitle, setExamTitle] = useState("");
