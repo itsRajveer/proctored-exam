@@ -9,6 +9,7 @@ import { ClassManagement } from "@/components/teacher/ClassManagement";
 import { ExamCreator } from "@/components/teacher/ExamCreator";
 import { ExamReview } from "@/components/teacher/ExamReview";
 import { StudentMonitor } from "@/components/teacher/StudentMonitor";
+import CalendarPage from "@/components/calendar/CalendarPage";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarIcon, BookOpen, GraduationCap } from "lucide-react";
@@ -173,6 +174,9 @@ const Dashboard = () => {
         <Route path="classes" element={<ClassManagement />} />
         <Route path="exam/:id/review" element={<ExamReview />} />
         <Route path="monitoring" element={<StudentMonitor />} />
+        
+        {/* Calendar Route (shared between student and teacher) */}
+        <Route path="calendar" element={<CalendarPage />} />
       </Route>
     </Routes>
   );
