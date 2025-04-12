@@ -24,11 +24,14 @@ import { useAuth } from "@/contexts/AuthContext";
 export const Navbar = () => {
   const { user, logout } = useAuth();
 
+  // Determine the right home link
+  const homeLink = user ? "/dashboard" : "/";
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
+          <Link to={homeLink} className="flex items-center gap-2 font-semibold">
             <BookOpen className="h-6 w-6 text-primary" />
             <span className="text-xl">ExamEye</span>
           </Link>

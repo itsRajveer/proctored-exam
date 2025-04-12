@@ -1,13 +1,13 @@
 
 import React from "react";
-import { Navigate, Outlet, Link } from "react-router-dom";
+import { Navigate, Outlet, Link, useLocation } from "react-router-dom";
 import {
   BookOpen,
   Calendar,
+  FileText,
   GraduationCap,
   Home,
   Users,
-  FileText,
   Video,
 } from "lucide-react";
 import {
@@ -22,87 +22,124 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "./Navbar";
 
-const StudentMenu = () => (
-  <SidebarMenu>
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <Link to="/dashboard">
-          <Home className="h-5 w-5" />
-          <span>Dashboard</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <Link to="/dashboard/exams">
-          <FileText className="h-5 w-5" />
-          <span>Exams</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <Link to="/dashboard/grades">
-          <GraduationCap className="h-5 w-5" />
-          <span>Grades</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <Link to="/dashboard/calendar">
-          <Calendar className="h-5 w-5" />
-          <span>Calendar</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  </SidebarMenu>
-);
+const StudentMenu = () => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+  
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton 
+          asChild 
+          isActive={currentPath === "/dashboard" || currentPath === "/dashboard/"}
+        >
+          <Link to="/dashboard">
+            <Home className="h-5 w-5" />
+            <span>Dashboard</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton 
+          asChild
+          isActive={currentPath.includes("/dashboard/exams")}
+        >
+          <Link to="/dashboard/exams">
+            <FileText className="h-5 w-5" />
+            <span>Exams</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton 
+          asChild
+          isActive={currentPath.includes("/dashboard/grades")}
+        >
+          <Link to="/dashboard/grades">
+            <GraduationCap className="h-5 w-5" />
+            <span>Grades</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton 
+          asChild
+          isActive={currentPath.includes("/dashboard/calendar")}
+        >
+          <Link to="/dashboard/calendar">
+            <Calendar className="h-5 w-5" />
+            <span>Calendar</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+};
 
-const TeacherMenu = () => (
-  <SidebarMenu>
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <Link to="/dashboard">
-          <Home className="h-5 w-5" />
-          <span>Dashboard</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <Link to="/dashboard/classes">
-          <Users className="h-5 w-5" />
-          <span>Classes</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <Link to="/dashboard/exams">
-          <FileText className="h-5 w-5" />
-          <span>Exams</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <Link to="/dashboard/monitoring">
-          <Video className="h-5 w-5" />
-          <span>Monitoring</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <Link to="/dashboard/calendar">
-          <Calendar className="h-5 w-5" />
-          <span>Calendar</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  </SidebarMenu>
-);
+const TeacherMenu = () => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+  
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton 
+          asChild
+          isActive={currentPath === "/dashboard" || currentPath === "/dashboard/"}
+        >
+          <Link to="/dashboard">
+            <Home className="h-5 w-5" />
+            <span>Dashboard</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton 
+          asChild
+          isActive={currentPath.includes("/dashboard/classes")}
+        >
+          <Link to="/dashboard/classes">
+            <Users className="h-5 w-5" />
+            <span>Classes</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton 
+          asChild
+          isActive={currentPath.includes("/dashboard/exams")}
+        >
+          <Link to="/dashboard/exams">
+            <FileText className="h-5 w-5" />
+            <span>Exams</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton 
+          asChild
+          isActive={currentPath.includes("/dashboard/monitoring")}
+        >
+          <Link to="/dashboard/monitoring">
+            <Video className="h-5 w-5" />
+            <span>Monitoring</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton 
+          asChild
+          isActive={currentPath.includes("/dashboard/calendar")}
+        >
+          <Link to="/dashboard/calendar">
+            <Calendar className="h-5 w-5" />
+            <span>Calendar</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+};
 
 export const DashboardLayout = () => {
   const { user, loading } = useAuth();
