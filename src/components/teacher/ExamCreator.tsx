@@ -55,6 +55,7 @@ import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useForm } from "react-hook-form";
 import { Class, Question, Exam } from "@/types";
 
 const mockClasses: Class[] = [
@@ -178,6 +179,16 @@ export const ExamCreator: React.FC = () => {
   // State for exam list and search
   const [searchTerm, setSearchTerm] = useState("");
   const [exams, setExams] = useState<typeof mockExams>(mockExams);
+
+  // Setup form for better form handling
+  const examForm = useForm({
+    defaultValues: {
+      examTitle: "",
+      examDescription: "",
+      classId: "",
+      duration: "60",
+    }
+  });
 
   useEffect(() => {
     if (classId) {
@@ -552,123 +563,132 @@ export const ExamCreator: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <FormLabel>Exam Title</FormLabel>
-                  <Input 
-                    placeholder="e.g. Midterm Mathematics Exam"
-                    value={examTitle}
-                    onChange={(e) => setExamTitle(e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <FormLabel>Description (Optional)</FormLabel>
-                  <Textarea 
-                    placeholder="Add a description for your exam"
-                    value={examDescription}
-                    onChange={(e) => setExamDescription(e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <FormLabel>Class</FormLabel>
-                  <Select value={classId} onValueChange={setClassId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockClasses.map((classItem) => (
-                        <SelectItem key={classItem.id} value={classItem.id}>
-                          {classItem.name} ({classItem.studentIds.length} students)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <FormLabel>Duration (minutes)</FormLabel>
-                  <Input 
-                    type="number"
-                    placeholder="60"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+                <Form {...examForm}>
                   <div className="space-y-2">
-                    <FormLabel>Start Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !startDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {startDate ? format(startDate, "PPP") : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={startDate}
-                          onSelect={setStartDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Label htmlFor="examTitle">Exam Title</Label>
+                    <Input 
+                      id="examTitle"
+                      placeholder="e.g. Midterm Mathematics Exam"
+                      value={examTitle}
+                      onChange={(e) => setExamTitle(e.target.value)}
+                    />
                   </div>
                   
                   <div className="space-y-2">
-                    <FormLabel>Start Time</FormLabel>
-                    <Input 
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
+                    <Label htmlFor="examDescription">Description (Optional)</Label>
+                    <Textarea 
+                      id="examDescription"
+                      placeholder="Add a description for your exam"
+                      value={examDescription}
+                      onChange={(e) => setExamDescription(e.target.value)}
                     />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <FormLabel>End Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !endDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {endDate ? format(endDate, "PPP") : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={endDate}
-                          onSelect={setEndDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
                   </div>
                   
                   <div className="space-y-2">
-                    <FormLabel>End Time</FormLabel>
+                    <Label htmlFor="classSelect">Class</Label>
+                    <Select value={classId} onValueChange={setClassId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {mockClasses.map((classItem) => (
+                          <SelectItem key={classItem.id} value={classItem.id}>
+                            {classItem.name} ({classItem.studentIds.length} students)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="duration">Duration (minutes)</Label>
                     <Input 
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
+                      id="duration"
+                      type="number"
+                      placeholder="60"
+                      value={duration}
+                      onChange={(e) => setDuration(e.target.value)}
                     />
                   </div>
-                </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="startDate">Start Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="startDate"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !startDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {startDate ? format(startDate, "PPP") : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={startDate}
+                            onSelect={setStartDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="startTime">Start Time</Label>
+                      <Input 
+                        id="startTime"
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="endDate">End Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="endDate"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !endDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {endDate ? format(endDate, "PPP") : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={endDate}
+                            onSelect={setEndDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="endTime">End Time</Label>
+                      <Input 
+                        id="endTime"
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </Form>
               </CardContent>
             </Card>
             
@@ -824,121 +844,130 @@ export const ExamCreator: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <FormLabel>Question Type</FormLabel>
-                  <RadioGroup
-                    value={currentQuestion.type}
-                    onValueChange={(value) =>
-                      handleQuestionTypeChange(value as "multiple-choice" | "text" | "true-false")
-                    }
-                    className="flex space-x-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="multiple-choice" id="multiple-choice" />
-                      <Label htmlFor="multiple-choice">Multiple Choice</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="text" id="text" />
-                      <Label htmlFor="text">Text</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="true-false" id="true-false" />
-                      <Label htmlFor="true-false">True/False</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-                
-                <div className="space-y-2">
-                  <FormLabel>Question Text</FormLabel>
-                  <Textarea
-                    placeholder="Enter your question here"
-                    value={currentQuestion.text}
-                    onChange={(e) =>
-                      setCurrentQuestion({ ...currentQuestion, text: e.target.value })
-                    }
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <FormLabel>Points</FormLabel>
-                  <Input
-                    type="number"
-                    min="1"
-                    placeholder="5"
-                    value={currentQuestion.points}
-                    onChange={(e) =>
-                      setCurrentQuestion({
-                        ...currentQuestion,
-                        points: parseInt(e.target.value) || 1,
-                      })
-                    }
-                    className="w-24"
-                  />
-                </div>
-                
-                {currentQuestion.type === "multiple-choice" && (
+              <Form {...examForm}>
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <FormLabel>Options</FormLabel>
-                    <div className="space-y-2">
-                      {currentQuestion.options?.map((option, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                          <RadioGroupItem
-                            value={index.toString()}
-                            id={`option-${index}`}
-                            checked={currentQuestion.correctAnswer === index}
-                            onClick={() =>
-                              setCurrentQuestion({
-                                ...currentQuestion,
-                                correctAnswer: index,
-                              })
-                            }
-                          />
-                          <Input
-                            value={option}
-                            onChange={(e) => handleOptionChange(index, e.target.value)}
-                            placeholder={`Option ${index + 1}`}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {currentQuestion.type === "true-false" && (
-                  <div className="space-y-2">
-                    <FormLabel>Correct Answer</FormLabel>
+                    <Label htmlFor="questionType">Question Type</Label>
                     <RadioGroup
-                      value={currentQuestion.correctAnswer ? "true" : "false"}
+                      defaultValue="multiple-choice"
+                      value={currentQuestion.type}
                       onValueChange={(value) =>
-                        setCurrentQuestion({
-                          ...currentQuestion,
-                          correctAnswer: value === "true",
-                        })
+                        handleQuestionTypeChange(value as "multiple-choice" | "text" | "true-false")
                       }
                       className="flex space-x-4"
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="true" id="true" />
-                        <Label htmlFor="true">True</Label>
+                        <RadioGroupItem value="multiple-choice" id="multiple-choice" />
+                        <Label htmlFor="multiple-choice">Multiple Choice</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="false" id="false" />
-                        <Label htmlFor="false">False</Label>
+                        <RadioGroupItem value="text" id="text" />
+                        <Label htmlFor="text">Text</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="true-false" id="true-false" />
+                        <Label htmlFor="true-false">True/False</Label>
                       </div>
                     </RadioGroup>
                   </div>
-                )}
-                
-                <Button
-                  onClick={addQuestion}
-                  variant="secondary"
-                  className="mt-2"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Question
-                </Button>
-              </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="question-text">Question Text</Label>
+                    <Textarea
+                      id="question-text"
+                      placeholder="Enter your question here"
+                      value={currentQuestion.text}
+                      onChange={(e) =>
+                        setCurrentQuestion({ ...currentQuestion, text: e.target.value })
+                      }
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="question-points">Points</Label>
+                    <Input
+                      id="question-points"
+                      type="number"
+                      min="1"
+                      placeholder="5"
+                      value={currentQuestion.points}
+                      onChange={(e) =>
+                        setCurrentQuestion({
+                          ...currentQuestion,
+                          points: parseInt(e.target.value) || 1,
+                        })
+                      }
+                      className="w-24"
+                    />
+                  </div>
+                  
+                  {currentQuestion.type === "multiple-choice" && (
+                    <div className="space-y-2">
+                      <Label>Options</Label>
+                      <div className="space-y-2">
+                        {currentQuestion.options?.map((option, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <RadioGroup
+                              value={currentQuestion.correctAnswer === index ? index.toString() : ""}
+                              onValueChange={() => {
+                                setCurrentQuestion({
+                                  ...currentQuestion,
+                                  correctAnswer: index,
+                                });
+                              }}
+                            >
+                              <RadioGroupItem
+                                value={index.toString()}
+                                id={`option-${index}`}
+                                checked={currentQuestion.correctAnswer === index}
+                              />
+                            </RadioGroup>
+                            <Input
+                              value={option}
+                              onChange={(e) => handleOptionChange(index, e.target.value)}
+                              placeholder={`Option ${index + 1}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {currentQuestion.type === "true-false" && (
+                    <div className="space-y-2">
+                      <Label>Correct Answer</Label>
+                      <RadioGroup
+                        value={currentQuestion.correctAnswer ? "true" : "false"}
+                        onValueChange={(value) =>
+                          setCurrentQuestion({
+                            ...currentQuestion,
+                            correctAnswer: value === "true",
+                          })
+                        }
+                        className="flex space-x-4"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="true" id="true" />
+                          <Label htmlFor="true">True</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="false" id="false" />
+                          <Label htmlFor="false">False</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  )}
+                  
+                  <Button
+                    onClick={addQuestion}
+                    variant="secondary"
+                    className="mt-2"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Question
+                  </Button>
+                </div>
+              </Form>
             </CardContent>
             <CardFooter>
               <div className="flex w-full justify-between">
@@ -970,3 +999,4 @@ export const ExamCreator: React.FC = () => {
 };
 
 export default ExamCreator;
+
