@@ -88,7 +88,7 @@ const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) 
               <div className="text-xl font-semibold">
                 {format(date, "EEEE, MMMM d, yyyy")}
               </div>
-              {!isMobile ? (
+              {/* {!isMobile ? (
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -120,7 +120,7 @@ const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) 
                     </div>
                   </DrawerContent>
                 </Drawer>
-              )}
+              )} */}
             </div>
             <div className="space-y-2">
               {getEventsForDate(date).length > 0 ? (
@@ -138,7 +138,7 @@ const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) 
         return (
           <div className="space-y-4">
             <div className="flex justify-end">
-              {!isMobile ? (
+              {/* {!isMobile ? (
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -170,7 +170,7 @@ const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) 
                     </div>
                   </DrawerContent>
                 </Drawer>
-              )}
+              )} */}
             </div>
             <div className="grid grid-cols-7 gap-2 text-center text-sm font-medium">
               {Array.from({ length: 7 }, (_, i) => {
@@ -229,7 +229,7 @@ const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) 
         return (
           <div className="space-y-4">
             <div className="flex justify-end">
-              {!isMobile ? (
+              {/* {!isMobile ? (
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -261,7 +261,7 @@ const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) 
                     </div>
                   </DrawerContent>
                 </Drawer>
-              )}
+              )} */}
             </div>
             <div className="grid grid-cols-7 gap-1">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
