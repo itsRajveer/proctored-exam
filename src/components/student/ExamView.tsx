@@ -1,7 +1,14 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AlertTriangle, ChevronLeft, ChevronRight, Clock, Save } from "lucide-react";
+import { 
+  AlertTriangle, 
+  ChevronLeft, 
+  ChevronRight, 
+  Clock, 
+  Maximize, 
+  Minimize, 
+  Save 
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +30,6 @@ import { CameraFeed } from "../common/CameraFeed";
 import { AIMonitor } from "../common/AIMonitor";
 import { Exam, Question } from "@/types";
 
-// Mock exam data
 const mockExam: Exam = {
   id: "e1",
   title: "Mid-term Mathematics",
@@ -91,10 +97,10 @@ export const ExamView: React.FC = () => {
     timestamp: Date;
     description: string;
   }[]>([]);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showFullScreenExitDialog, setShowFullScreenExitDialog] = useState(false);
 
-  // Load exam data
   useEffect(() => {
-    // Simulate API call
     setTimeout(() => {
       setExam(mockExam);
       setTimeRemaining(mockExam.duration * 60);
@@ -102,7 +108,6 @@ export const ExamView: React.FC = () => {
     }, 1000);
   }, [id]);
 
-  // Timer countdown
   useEffect(() => {
     if (!exam || timeRemaining <= 0) return;
 
@@ -121,6 +126,36 @@ export const ExamView: React.FC = () => {
       clearInterval(timer);
     };
   }, [exam, timeRemaining]);
+
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      const isCurrentlyFullScreen = !!document.fullscreenElement;
+      setIsFullScreen(isCurrentlyFullScreen);
+      
+      if (!isCurrentlyFullScreen && isFullScreen) {
+        setShowFullScreenExitDialog(true);
+      }
+    };
+    
+    document.addEventListener("fullscreenchange", handleFullScreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullScreenChange);
+  }, [isFullScreen]);
+
+  const toggleFullScreen = async () => {
+    if (!document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen();
+        setIsFullScreen(true);
+      } catch (error) {
+        console.error("Error attempting to enable full-screen mode:", error);
+      }
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+        setIsFullScreen(false);
+      }
+    }
+  };
 
   const formatTime = (seconds: number): string => {
     const hrs = Math.floor(seconds / 3600);
@@ -151,7 +186,6 @@ export const ExamView: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    // In a real app, you'd send the answers to your API
     toast({
       title: "Exam Submitted",
       description: "Your answers have been submitted successfully.",
@@ -178,6 +212,12 @@ export const ExamView: React.FC = () => {
       description: "Your answers have been saved.",
     });
   };
+
+  useEffect(() => {
+    if (!loading && exam) {
+      toggleFullScreen();
+    }
+  }, [loading, exam]);
 
   if (loading) {
     return (
@@ -208,18 +248,30 @@ export const ExamView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="lg:w-3/4 space-y-6">
-          {/* Exam Header */}
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">{exam.title}</h2>
-            <div className="flex items-center bg-gray-100 px-3 py-2 rounded-md">
-              <Clock className="h-5 w-5 mr-2 text-gray-500" />
-              <span className="font-mono font-medium">
-                {formatTime(timeRemaining)}
-              </span>
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center bg-gray-100 px-3 py-2 rounded-md">
+                <Clock className="h-5 w-5 mr-2 text-gray-500" />
+                <span className="font-mono font-medium">
+                  {formatTime(timeRemaining)}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleFullScreen}
+                title={isFullScreen ? "Exit fullscreen" : "Enter fullscreen"}
+              >
+                {isFullScreen ? (
+                  <Minimize className="h-4 w-4" />
+                ) : (
+                  <Maximize className="h-4 w-4" />
+                )}
+              </Button>
             </div>
           </div>
 
-          {/* Progress */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>
@@ -232,7 +284,6 @@ export const ExamView: React.FC = () => {
             <Progress value={progress} className="h-2" />
           </div>
 
-          {/* Question Card */}
           <Card className="shadow-sm">
             <CardContent className="pt-6">
               <div className="space-y-4">
@@ -309,7 +360,6 @@ export const ExamView: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Navigation Buttons */}
           <div className="flex justify-between">
             <Button
               variant="outline"
@@ -339,7 +389,6 @@ export const ExamView: React.FC = () => {
           </div>
         </div>
 
-        {/* Camera and Monitoring */}
         <div className="lg:w-1/4 space-y-4">
           <CameraFeed isRecording={true} className="w-full" />
           <AIMonitor onViolation={handleViolation} />
@@ -369,7 +418,6 @@ export const ExamView: React.FC = () => {
         </div>
       </div>
 
-      {/* Submit Dialog */}
       <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -390,7 +438,6 @@ export const ExamView: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Leave Dialog */}
       <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -402,6 +449,29 @@ export const ExamView: React.FC = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Stay</AlertDialogCancel>
             <AlertDialogAction onClick={() => navigate("/dashboard/exams")}>Leave</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog 
+        open={showFullScreenExitDialog} 
+        onOpenChange={setShowFullScreenExitDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Exit Fullscreen Mode?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have exited fullscreen mode. This may be considered a violation of exam rules.
+              Please return to fullscreen mode or submit your exam.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowFullScreenExitDialog(false)}>
+              Return to Fullscreen
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => setShowSubmitDialog(true)}>
+              Submit Exam
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

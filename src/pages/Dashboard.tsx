@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Route, Routes } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -7,6 +6,7 @@ import { ExamView } from "@/components/student/ExamView";
 import { GradesList } from "@/components/student/GradesList";
 import { ClassManagement } from "@/components/teacher/ClassManagement";
 import { ExamCreator } from "@/components/teacher/ExamCreator";
+import { ExamReview } from "@/components/teacher/ExamReview";
 import { StudentMonitor } from "@/components/teacher/StudentMonitor";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,6 +171,7 @@ const Dashboard = () => {
         {/* Teacher Routes */}
         <Route path="classes" element={<ClassManagement />} />
         <Route path="exams" element={<ExamCreator />} />
+        <Route path="exam/:id/review" element={<ExamReview />} />
         <Route path="monitoring" element={<StudentMonitor />} />
       </Route>
     </Routes>

@@ -79,7 +79,13 @@ const StudentCard: React.FC<StudentCardProps> = ({ student, onView, isExpanded }
           </Button>
         ) : (
           <div className="space-y-4">
-            <CameraFeed className="w-full h-auto aspect-video mb-2" />
+            {/* Show student's camera feed, not teacher's */}
+            <div className="w-full h-auto aspect-video bg-black/10 relative flex items-center justify-center">
+              <CameraFeed className="w-full h-auto aspect-video mb-2" isRecording={false} />
+              <div className="absolute bottom-2 right-2 bg-black/60 text-white px-2 py-1 text-xs rounded">
+                Student Camera
+              </div>
+            </div>
             <AIMonitor />
             <Button 
               onClick={() => onView("")}

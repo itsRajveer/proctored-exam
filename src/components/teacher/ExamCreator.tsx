@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CalendarIcon,
@@ -11,6 +10,7 @@ import {
   X,
   ClipboardCheck,
   ClipboardList,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +50,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Class, Question } from "@/types";
 
-// Mock classes
 const mockClasses: Class[] = [
   {
     id: "c1",
@@ -66,6 +65,14 @@ const mockClasses: Class[] = [
     teacherId: "t1",
     studentIds: ["s1", "s2", "s3"]
   }
+];
+
+const mockStudents = [
+  { id: "s1", name: "John Doe", email: "john.doe@example.com" },
+  { id: "s2", name: "Jane Smith", email: "jane.smith@example.com" },
+  { id: "s3", name: "Michael Brown", email: "michael.brown@example.com" },
+  { id: "s4", name: "Emily Johnson", email: "emily.johnson@example.com" },
+  { id: "s5", name: "David Wilson", email: "david.wilson@example.com" },
 ];
 
 export const ExamCreator: React.FC = () => {
@@ -89,6 +96,28 @@ export const ExamCreator: React.FC = () => {
     correctAnswer: 0,
     points: 5,
   });
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [classStudents, setClassStudents] = useState<{id: string, name: string}[]>([]);
+
+  useEffect(() => {
+    if (classId) {
+      const selectedClass = mockClasses.find(c => c.id === classId);
+      if (selectedClass) {
+        const students = selectedClass.studentIds.map(id => 
+          mockStudents.find(s => s.id === id)
+        ).filter(Boolean).map(s => ({ id: s!.id, name: s!.name }));
+        
+        setClassStudents(students);
+        setSelectedStudents(students.map(s => s.id));
+      } else {
+        setClassStudents([]);
+        setSelectedStudents([]);
+      }
+    } else {
+      setClassStudents([]);
+      setSelectedStudents([]);
+    }
+  }, [classId]);
 
   const addQuestion = () => {
     if (!currentQuestion.text) {
@@ -117,7 +146,6 @@ export const ExamCreator: React.FC = () => {
     };
     
     setQuestions([...questions, newQuestion]);
-    // Reset current question
     setCurrentQuestion({
       id: "",
       text: "",
@@ -212,13 +240,37 @@ export const ExamCreator: React.FC = () => {
       return;
     }
     
-    // In a real app, you would send this data to your API
+    if (selectedStudents.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please select at least one student for the exam.",
+      });
+      return;
+    }
+    
     toast({
       title: "Exam Created",
-      description: "The exam has been created successfully.",
+      description: `The exam has been created successfully for ${selectedStudents.length} students.`,
     });
     
     navigate("/dashboard/exams");
+  };
+
+  const toggleAllStudents = () => {
+    if (selectedStudents.length === classStudents.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(classStudents.map(s => s.id));
+    }
+  };
+
+  const toggleStudent = (studentId: string) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId)
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
   };
 
   return (
@@ -263,7 +315,7 @@ export const ExamCreator: React.FC = () => {
                 <SelectContent>
                   {mockClasses.map((classItem) => (
                     <SelectItem key={classItem.id} value={classItem.id}>
-                      {classItem.name}
+                      {classItem.name} ({classItem.studentIds.length} students)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -358,88 +410,147 @@ export const ExamCreator: React.FC = () => {
         
         <Card>
           <CardHeader>
-            <CardTitle>Questions</CardTitle>
+            <CardTitle>Students</CardTitle>
             <CardDescription>
-              Add questions to your exam
+              Select students who will take this exam
             </CardDescription>
           </CardHeader>
-          <CardContent className="h-[400px] overflow-auto space-y-4">
-            {questions.length > 0 ? (
-              questions.map((q, index) => (
-                <Card key={q.id} className="relative">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="absolute right-2 top-2 h-6 w-6"
-                    onClick={() => removeQuestion(q.id)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                  <CardContent className="pt-6">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <h4 className="font-medium">
-                          Question {index + 1}
-                        </h4>
-                        <span className="text-sm text-muted-foreground">
-                          {q.points} points
-                        </span>
-                      </div>
-                      <p>{q.text}</p>
-                      {q.type === "multiple-choice" && (
-                        <div className="space-y-2 pl-2">
-                          {q.options?.map((option, i) => (
-                            <div key={i} className="flex items-center space-x-2">
-                              <div className={`h-4 w-4 rounded-full ${
-                                q.correctAnswer === i ? "bg-primary" : "bg-gray-200"
-                              }`} />
-                              <span>{option}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {q.type === "true-false" && (
-                        <div className="space-y-2 pl-2">
-                          <div className="flex items-center space-x-2">
-                            <div className={`h-4 w-4 rounded-full ${
-                              q.correctAnswer === true ? "bg-primary" : "bg-gray-200"
-                            }`} />
-                            <span>True</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <div className={`h-4 w-4 rounded-full ${
-                              q.correctAnswer === false ? "bg-primary" : "bg-gray-200"
-                            }`} />
-                            <span>False</span>
-                          </div>
-                        </div>
-                      )}
-                      {q.type === "text" && (
-                        <div className="pl-2 text-sm text-muted-foreground">
-                          Text answer required
-                        </div>
-                      )}
+          <CardContent className="space-y-4">
+            {classId ? (
+              <>
+                {classStudents.length > 0 ? (
+                  <>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="selectAll" 
+                        checked={selectedStudents.length === classStudents.length}
+                        onCheckedChange={toggleAllStudents}
+                      />
+                      <Label htmlFor="selectAll">Select All Students</Label>
                     </div>
-                  </CardContent>
-                </Card>
-              ))
+                    <Separator className="my-2" />
+                    <div className="h-[300px] overflow-auto space-y-2">
+                      {classStudents.map((student) => (
+                        <div key={student.id} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`student-${student.id}`} 
+                            checked={selectedStudents.includes(student.id)}
+                            onCheckedChange={() => toggleStudent(student.id)}
+                          />
+                          <Label htmlFor={`student-${student.id}`}>{student.name}</Label>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {selectedStudents.length} of {classStudents.length} students selected
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                    <Users className="h-12 w-12 text-gray-400 mb-2" />
+                    <h3 className="font-medium">No Students Found</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      The selected class has no registered students
+                    </p>
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <ClipboardList className="h-12 w-12 text-gray-400 mb-2" />
-                <h3 className="font-medium">No Questions Added</h3>
+              <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                <Users className="h-12 w-12 text-gray-400 mb-2" />
+                <h3 className="font-medium">Select a Class First</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Add questions using the form below
+                  Select a class to see available students
                 </p>
               </div>
             )}
           </CardContent>
-          <CardFooter className="flex justify-between border-t p-4">
-            <div className="text-sm text-muted-foreground">
-              {questions.length} question(s), {questions.reduce((sum, q) => sum + q.points, 0)} total points
-            </div>
-          </CardFooter>
         </Card>
       </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Questions</CardTitle>
+          <CardDescription>
+            Add questions to your exam
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="h-[400px] overflow-auto space-y-4">
+          {questions.length > 0 ? (
+            questions.map((q, index) => (
+              <Card key={q.id} className="relative">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-2 top-2 h-6 w-6"
+                  onClick={() => removeQuestion(q.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <h4 className="font-medium">
+                        Question {index + 1}
+                      </h4>
+                      <span className="text-sm text-muted-foreground">
+                        {q.points} points
+                      </span>
+                    </div>
+                    <p>{q.text}</p>
+                    {q.type === "multiple-choice" && (
+                      <div className="space-y-2 pl-2">
+                        {q.options?.map((option, i) => (
+                          <div key={i} className="flex items-center space-x-2">
+                            <div className={`h-4 w-4 rounded-full ${
+                              q.correctAnswer === i ? "bg-primary" : "bg-gray-200"
+                            }`} />
+                            <span>{option}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {q.type === "true-false" && (
+                      <div className="space-y-2 pl-2">
+                        <div className="flex items-center space-x-2">
+                          <div className={`h-4 w-4 rounded-full ${
+                            q.correctAnswer === true ? "bg-primary" : "bg-gray-200"
+                          }`} />
+                          <span>True</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className={`h-4 w-4 rounded-full ${
+                            q.correctAnswer === false ? "bg-primary" : "bg-gray-200"
+                          }`} />
+                          <span>False</span>
+                        </div>
+                      </div>
+                    )}
+                    {q.type === "text" && (
+                      <div className="pl-2 text-sm text-muted-foreground">
+                        Text answer required
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <ClipboardList className="h-12 w-12 text-gray-400 mb-2" />
+              <h3 className="font-medium">No Questions Added</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Add questions using the form below
+              </p>
+            </div>
+          )}
+        </CardContent>
+        <CardFooter className="flex justify-between border-t p-4">
+          <div className="text-sm text-muted-foreground">
+            {questions.length} question(s), {questions.reduce((sum, q) => sum + q.points, 0)} total points
+          </div>
+        </CardFooter>
+      </Card>
       
       <Card>
         <CardHeader>
