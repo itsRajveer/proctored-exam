@@ -83,7 +83,7 @@ const CalendarPage = () => {
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {/* Left sidebar */}
-        <Card className="md:col-span-1">
+        {/* <Card className="md:col-span-1">
           <CardHeader>
             <CardTitle>Calendar</CardTitle>
           </CardHeader>
@@ -133,10 +133,10 @@ const CalendarPage = () => {
               </DropdownMenu>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Main calendar area */}
-        <Card className="md:col-span-2">
+        <Card className="col-span-4">
           <CardHeader className="space-y-0 pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">

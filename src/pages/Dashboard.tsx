@@ -69,7 +69,7 @@ const StudentDashboard = () => {
         />
       </div>
       
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6">
         <div className="col-span-2">
           <Card>
             <CardHeader>
@@ -80,7 +80,7 @@ const StudentDashboard = () => {
             </CardContent>
           </Card>
         </div>
-        <div>
+        {/* <div>
           <Card>
             <CardHeader>
               <CardTitle>Recent Grades</CardTitle>
@@ -89,7 +89,7 @@ const StudentDashboard = () => {
               <GradesList />
             </CardContent>
           </Card>
-        </div>
+        </div> */}
       </div>
     </div>
   );
@@ -126,7 +126,7 @@ const TeacherDashboard = () => {
         />
       </div>
       
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6">
         <div className="col-span-2">
           <Card>
             <CardHeader>
@@ -142,7 +142,7 @@ const TeacherDashboard = () => {
             <CardHeader>
               <CardTitle>Student Activity</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent>
               <StudentMonitor />
             </CardContent>
           </Card>
