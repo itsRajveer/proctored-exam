@@ -1,4 +1,3 @@
-
 import React from "react";
 import { format, addDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import EventItem, { EventItemProps } from "./EventItem";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Mock data for teacher events
 const teacherEvents: EventItemProps[] = [
@@ -61,7 +60,7 @@ interface TeacherCalendarViewProps {
 }
 
 const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) => {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isMobile = useIsMobile();
   
   // Filter events based on selected filters
   const filteredEvents = teacherEvents.filter((event) => {
@@ -89,7 +88,7 @@ const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) 
               <div className="text-xl font-semibold">
                 {format(date, "EEEE, MMMM d, yyyy")}
               </div>
-              {isDesktop ? (
+              {!isMobile ? (
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -139,7 +138,7 @@ const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) 
         return (
           <div className="space-y-4">
             <div className="flex justify-end">
-              {isDesktop ? (
+              {!isMobile ? (
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -230,7 +229,7 @@ const TeacherCalendarView = ({ date, view, filters }: TeacherCalendarViewProps) 
         return (
           <div className="space-y-4">
             <div className="flex justify-end">
-              {isDesktop ? (
+              {!isMobile ? (
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button size="sm">
