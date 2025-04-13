@@ -1,31 +1,32 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, AuthContextType } from "../types";
+import { initializeApp } from "firebase/app";
+import { getAuth, signInWithCustomToken, signOut } from "firebase/auth";
 
-// Mock users for demo
-const mockUsers = [
-  {
-    id: "t1",
-    name: "Dr. Smith",
-    email: "teacher@example.com",
-    role: "teacher" as const,
-    avatar: "https://i.pravatar.cc/150?u=teacher",
-    classIds: ["c1", "c2"],
-  },
-  {
-    id: "s1",
-    name: "John Doe",
-    email: "student@example.com",
-    role: "student" as const,
-    avatar: "https://i.pravatar.cc/150?u=student1",
-    classIds: ["c1"],
-  },
-];
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDNkjBJJH7xlAg-4W8sJzrqahmf2HDglxM",
+  authDomain: "proctored-exam-8b53b.firebaseapp.com",
+  databaseURL: "https://proctored-exam-8b53b-default-rtdb.firebaseio.com",
+  projectId: "proctored-exam-8b53b",
+  storageBucket: "proctored-exam-8b53b.firebasestorage.app",
+  messagingSenderId: "656556538635",
+  appId: "1:656556538635:web:8633f2666996aeb53a400e",
+  measurementId: "G-2HG3PZ4S37"
+};
+
+console.log(firebaseConfig);
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  login: async () => {},
+  login: async (email: string, password: string) => {
+    throw new Error("AuthContext not initialized");
+  },
   logout: async () => {},
 });
 
@@ -47,20 +48,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      // Find user by email (mock authentication)
-      const foundUser = mockUsers.find((u) => u.email === email);
-      if (!foundUser) {
-        throw new Error("Invalid email or password");
+      // Call backend login endpoint with POST method
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Login failed");
       }
+
+      const data = await response.json();
       
-      // In a real application, you would validate the password here
+      // Sign in with Firebase using the custom token
+      const userCredential = await signInWithCustomToken(auth, data.customToken);
+      const firebaseUser = userCredential.user;
       
       // Save user to state and localStorage
-      setUser(foundUser);
-      localStorage.setItem("user", JSON.stringify(foundUser));
+      const userData = {
+        id: firebaseUser.uid,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.user.name)}`,
+      };
+      
+      setUser(userData);
+      localStorage.setItem("user", JSON.stringify(userData));
+      
+      return userData;
     } catch (error) {
       console.error("Login failed:", error);
       throw error;
@@ -72,8 +92,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Sign out from Firebase
+      await signOut(auth);
       
       // Clear user from state and localStorage
       setUser(null);

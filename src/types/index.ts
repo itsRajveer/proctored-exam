@@ -1,12 +1,11 @@
-
-export type UserRole = 'student' | 'teacher';
+export type UserRole = "student" | "teacher";
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  avatar?: string;
+  avatar: string;
 }
 
 export interface Student extends User {
@@ -89,6 +88,6 @@ export interface FaceDetection {
 export interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
 }

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Lock, User } from "lucide-react";
@@ -41,17 +40,23 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      await login(email, password);
+      const user = await login(email, password);
       toast({
         title: "Login Successful",
-        description: "Welcome to the ExamEye portal",
+        description: `Welcome to the ExamEye portal, ${user.name}`,
       });
-      navigate("/dashboard");
+      
+      // Navigate based on user role
+      if (user.role === "student") {
+        navigate("/student/dashboard");
+      } else if (user.role === "teacher") {
+        navigate("/teacher/dashboard");
+      }
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "Invalid credentials. Please try again.",
+        description: error instanceof Error ? error.message : "Invalid credentials. Please try again.",
       });
     } finally {
       setIsLoading(false);
