@@ -45,6 +45,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Class, Student } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -118,6 +119,7 @@ export const ClassManagement: React.FC = () => {
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [isAddingStudentsToNewClass, setIsAddingStudentsToNewClass] = useState(false);
+  const [openAccordion, setOpenAccordion] = useState<string | undefined>(undefined);
 
   const filteredClasses = classes.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -291,6 +293,10 @@ export const ClassManagement: React.FC = () => {
     setShowAddStudentDialog(true);
   };
 
+  const handleAccordionValueChange = (value: string) => {
+    setOpenAccordion(value === openAccordion ? undefined : value);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -384,49 +390,57 @@ export const ClassManagement: React.FC = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="flex flex-col items-start pt-1">
-                  <Accordion type="single" collapsible className="w-full" value={`students-${classItem.id}`}>
+                  <Accordion 
+                    type="single" 
+                    collapsible 
+                    className="w-full" 
+                    value={openAccordion === `students-${classItem.id}` ? `students-${classItem.id}` : undefined}
+                    onValueChange={handleAccordionValueChange}
+                  >
                     <AccordionItem value={`students-${classItem.id}`}>
                       <AccordionTrigger className="text-sm py-2">
                         Students List
                       </AccordionTrigger>
                       <AccordionContent>
-                        <div className="space-y-2">
-                          {classItem.studentIds.length > 0 ? (
-                            classItem.studentIds.map((studentId) => {
-                              const student = students.find((s) => s.id === studentId);
-                              if (!student) return null;
-                              
-                              return (
-                                <div
-                                  key={student.id}
-                                  className="flex items-center justify-between bg-muted/40 p-2 rounded-md"
-                                >
-                                  <div>
-                                    <div className="font-medium">
-                                      {student.name}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {student.email}
-                                    </div>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleRemoveStudent(classItem.id, student.id)
-                                    }
+                        {classItem.studentIds.length > 0 ? (
+                          <ScrollArea className="max-h-[200px]">
+                            <div className="space-y-2">
+                              {classItem.studentIds.map((studentId) => {
+                                const student = students.find((s) => s.id === studentId);
+                                if (!student) return null;
+                                
+                                return (
+                                  <div
+                                    key={student.id}
+                                    className="flex items-center justify-between bg-muted/40 p-2 rounded-md"
                                   >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <div className="text-sm text-muted-foreground">
-                              No students in this class
+                                    <div>
+                                      <div className="font-medium">
+                                        {student.name}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {student.email}
+                                      </div>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleRemoveStudent(classItem.id, student.id)
+                                      }
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          )}
-                        </div>
+                          </ScrollArea>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">
+                            No students in this class
+                          </div>
+                        )}
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
@@ -597,40 +611,42 @@ export const ClassManagement: React.FC = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Students</label>
-              <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto space-y-2">
-                {editingClass?.studentIds.map(studentId => {
-                  const student = students.find(s => s.id === studentId);
-                  if (!student) return null;
-                  
-                  return (
-                    <div key={student.id} className="flex items-center justify-between bg-muted/40 p-2 rounded-md">
-                      <div>
-                        <div className="font-medium">{student.name}</div>
-                        <div className="text-xs text-muted-foreground">{student.email}</div>
+              <ScrollArea className="h-[200px] border rounded-md p-3">
+                <div className="space-y-2">
+                  {editingClass?.studentIds.map(studentId => {
+                    const student = students.find(s => s.id === studentId);
+                    if (!student) return null;
+                    
+                    return (
+                      <div key={student.id} className="flex items-center justify-between bg-muted/40 p-2 rounded-md">
+                        <div>
+                          <div className="font-medium">{student.name}</div>
+                          <div className="text-xs text-muted-foreground">{student.email}</div>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => {
+                            if (editingClass) {
+                              setEditingClass({
+                                ...editingClass,
+                                studentIds: editingClass.studentIds.filter(id => id !== student.id)
+                              });
+                            }
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => {
-                          if (editingClass) {
-                            setEditingClass({
-                              ...editingClass,
-                              studentIds: editingClass.studentIds.filter(id => id !== student.id)
-                            });
-                          }
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                    );
+                  })}
+                  {!editingClass?.studentIds.length && (
+                    <div className="text-sm text-muted-foreground text-center py-4">
+                      No students in this class
                     </div>
-                  );
-                })}
-                {!editingClass?.studentIds.length && (
-                  <div className="text-sm text-muted-foreground text-center py-4">
-                    No students in this class
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
           </div>
           <DialogFooter>
