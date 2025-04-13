@@ -46,12 +46,8 @@ const Login = () => {
         description: `Welcome to the ExamEye portal, ${user.name}`,
       });
       
-      // Navigate based on user role
-      if (user.role === "student") {
-        navigate("/student/dashboard");
-      } else if (user.role === "teacher") {
-        navigate("/teacher/dashboard");
-      }
+      // Navigate to dashboard based on role
+      navigate("/dashboard");
     } catch (error) {
       toast({
         variant: "destructive",

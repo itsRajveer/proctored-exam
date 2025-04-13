@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Route, Routes } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -13,6 +12,8 @@ import CalendarPage from "@/components/calendar/CalendarPage";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarIcon, BookOpen, GraduationCap } from "lucide-react";
+import { StudentDashboard } from "../components/student/StudentDashboard";
+import { TeacherDashboard } from "../components/teacher/TeacherDashboard";
 
 const DashboardOverview = ({ title, description, icon, value }: { 
   title: string; 
@@ -38,135 +39,28 @@ const DashboardOverview = ({ title, description, icon, value }: {
   );
 };
 
-const StudentDashboard = () => {
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Student Dashboard</h2>
-        <p className="text-muted-foreground">
-          Welcome back to your exam portal. Here's your overview.
-        </p>
-      </div>
-      
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <DashboardOverview
-          title="Upcoming Exams"
-          description="Exams scheduled in the next 7 days"
-          icon={<CalendarIcon className="h-4 w-4" />}
-          value="3"
-        />
-        <DashboardOverview
-          title="Courses"
-          description="Active courses this semester"
-          icon={<BookOpen className="h-4 w-4" />}
-          value="5"
-        />
-        <DashboardOverview
-          title="Average Grade"
-          description="Your performance this semester"
-          icon={<GraduationCap className="h-4 w-4" />}
-          value="85%"
-        />
-      </div>
-      
-      <div className="grid grid-cols-1 gap-6">
-        <div className="col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming Examinations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ExamList />
-            </CardContent>
-          </Card>
-        </div>
-        {/* <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Grades</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <GradesList />
-            </CardContent>
-          </Card>
-        </div> */}
-      </div>
-    </div>
-  );
-};
-
-const TeacherDashboard = () => {
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Teacher Dashboard</h2>
-        <p className="text-muted-foreground">
-          Welcome back. Manage your classes and monitor student activity.
-        </p>
-      </div>
-      
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <DashboardOverview
-          title="Active Exams"
-          description="Exams currently in progress"
-          icon={<CalendarIcon className="h-4 w-4" />}
-          value="2"
-        />
-        <DashboardOverview
-          title="Total Students"
-          description="Students across all classes"
-          icon={<BookOpen className="h-4 w-4" />}
-          value="127"
-        />
-        <DashboardOverview
-          title="Classes"
-          description="Active classes this semester"
-          icon={<GraduationCap className="h-4 w-4" />}
-          value="4"
-        />
-      </div>
-      
-      <div className="grid grid-cols-1 gap-6">
-        <div className="col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Class Management</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ClassManagement />
-            </CardContent>
-          </Card>
-        </div>
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Student Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StudentMonitor />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const Dashboard = () => {
   const { user } = useAuth();
-  
+
+  if (!user) {
+    return null; // or a loading state
+  }
+
   return (
     <Routes>
       <Route element={<DashboardLayout />}>
         <Route
           index
           element={
-            user?.role === "student" ? <StudentDashboard /> : <TeacherDashboard />
+            user.role === "student" ? <StudentDashboard /> : <TeacherDashboard />
           }
         />
         
         {/* Student Routes */}
-        <Route path="exams" element={user?.role === "student" ? <ExamList /> : <ExamCreator />} />
+        <Route
+          path="exams"
+          element={user.role === "student" ? <ExamList /> : <ExamCreator />}
+        />
         <Route path="exam/:id" element={<ExamView />} />
         <Route path="grades" element={<GradesList />} />
         
