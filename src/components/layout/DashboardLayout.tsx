@@ -9,6 +9,7 @@ import {
   Home,
   Users,
   Video,
+  Menu,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "./Navbar";
+import { Button } from "@/components/ui/button";
 
 const StudentMenu = () => {
   const location = useLocation();
@@ -175,7 +177,13 @@ export const DashboardLayout = () => {
           </Sidebar>
           <div className="flex-1 bg-background/95">
             <div className="container max-w-7xl px-4 py-6 md:px-6 lg:py-8">
-              <SidebarTrigger className="mb-4 lg:hidden" />
+              {/* Make SidebarTrigger more prominent */}
+              <div className="mb-6 flex items-center">
+                <SidebarTrigger className="lg:hidden flex items-center gap-2 border rounded-md p-2">
+                  <Menu className="h-5 w-5" />
+                  <span className="text-sm">Menu</span>
+                </SidebarTrigger>
+              </div>
               <Outlet />
             </div>
           </div>

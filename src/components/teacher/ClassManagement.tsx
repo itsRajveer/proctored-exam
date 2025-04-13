@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { 
   ChevronDown,
@@ -9,7 +8,8 @@ import {
   X,
   GraduationCap,
   FileText,
-  Users
+  Users,
+  Edit
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,8 +47,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Class, Student } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+} from "@/components/ui/drawer";
 
-// Mock data
 const mockClasses: Class[] = [
   {
     id: "c1",
@@ -115,6 +122,10 @@ export const ClassManagement: React.FC = () => {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [showAddStudentDialog, setShowAddStudentDialog] = useState(false);
   const [studentEmail, setStudentEmail] = useState("");
+  const [showEditClassDrawer, setShowEditClassDrawer] = useState(false);
+  const [editingClass, setEditingClass] = useState<Class | null>(null);
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [isAddingStudentsToNewClass, setIsAddingStudentsToNewClass] = useState(false);
 
   const filteredClasses = classes.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -135,13 +146,14 @@ export const ClassManagement: React.FC = () => {
       id: `c${Date.now()}`,
       name: newClassName,
       description: newClassDescription,
-      teacherId: "t1", // Current teacher ID
-      studentIds: []
+      teacherId: "t1",
+      studentIds: selectedStudents
     };
     
     setClasses([...classes, newClass]);
     setNewClassName("");
     setNewClassDescription("");
+    setSelectedStudents([]);
     setShowCreateDialog(false);
     
     toast({
@@ -160,14 +172,13 @@ export const ClassManagement: React.FC = () => {
   };
 
   const handleAddStudent = () => {
-    if (!selectedClassId || !studentEmail.trim()) {
+    if ((!selectedClassId && !isAddingStudentsToNewClass) || !studentEmail.trim()) {
       return;
     }
     
-    // In a real app, you would validate the email and check if the student exists
-    const studentExists = students.some(s => s.email === studentEmail);
+    const student = students.find(s => s.email === studentEmail);
     
-    if (!studentExists) {
+    if (!student) {
       toast({
         variant: "destructive",
         title: "Student Not Found",
@@ -176,11 +187,29 @@ export const ClassManagement: React.FC = () => {
       return;
     }
     
-    // Check if student is already in the class
-    const classIndex = classes.findIndex(c => c.id === selectedClassId);
-    const student = students.find(s => s.email === studentEmail);
+    if (isAddingStudentsToNewClass) {
+      if (selectedStudents.includes(student.id)) {
+        toast({
+          variant: "destructive",
+          title: "Student Already Added",
+          description: `${student.name} is already in this class`,
+        });
+        return;
+      }
+      
+      setSelectedStudents([...selectedStudents, student.id]);
+      
+      toast({
+        title: "Student Added",
+        description: `${student.name} will be added to the class when created`,
+      });
+      setStudentEmail("");
+      return;
+    }
     
-    if (student && classes[classIndex].studentIds.includes(student.id)) {
+    const classIndex = classes.findIndex(c => c.id === selectedClassId);
+    
+    if (classes[classIndex].studentIds.includes(student.id)) {
       toast({
         variant: "destructive",
         title: "Student Already Added",
@@ -189,17 +218,14 @@ export const ClassManagement: React.FC = () => {
       return;
     }
     
-    // Add student to class
-    if (student) {
-      const updatedClasses = [...classes];
-      updatedClasses[classIndex].studentIds.push(student.id);
-      setClasses(updatedClasses);
-      
-      toast({
-        title: "Student Added",
-        description: `${student.name} has been added to the class`,
-      });
-    }
+    const updatedClasses = [...classes];
+    updatedClasses[classIndex].studentIds.push(student.id);
+    setClasses(updatedClasses);
+    
+    toast({
+      title: "Student Added",
+      description: `${student.name} has been added to the class`,
+    });
     
     setStudentEmail("");
     setShowAddStudentDialog(false);
@@ -224,14 +250,53 @@ export const ClassManagement: React.FC = () => {
     }
   };
 
+  const handleRemoveSelectedStudent = (studentId: string) => {
+    setSelectedStudents(selectedStudents.filter(id => id !== studentId));
+    
+    const student = students.find(s => s.id === studentId);
+    if (student) {
+      toast({
+        title: "Student Removed",
+        description: `${student.name} has been removed from the class`,
+      });
+    }
+  };
+
+  const handleEditClass = (classItem: Class) => {
+    setEditingClass(classItem);
+    setShowEditClassDrawer(true);
+  };
+
+  const handleUpdateClass = () => {
+    if (!editingClass) return;
+    
+    const updatedClasses = classes.map(c => 
+      c.id === editingClass.id ? editingClass : c
+    );
+    
+    setClasses(updatedClasses);
+    setShowEditClassDrawer(false);
+    
+    toast({
+      title: "Class Updated",
+      description: `${editingClass.name} has been updated successfully.`,
+    });
+  };
+
   const getClassStats = (classId: string) => {
     const classItem = classes.find(c => c.id === classId);
     if (!classItem) return { studentCount: 0, examCount: 0 };
     
     return {
       studentCount: classItem.studentIds.length,
-      examCount: 2 // Mock: In a real app, this would be fetched from your API
+      examCount: 2
     };
+  };
+
+  const handleAddStudentsToNewClass = () => {
+    setIsAddingStudentsToNewClass(true);
+    setSelectedClassId(null);
+    setShowAddStudentDialog(true);
   };
 
   return (
@@ -295,10 +360,15 @@ export const ClassManagement: React.FC = () => {
                           onClick={() => {
                             setSelectedClassId(classItem.id);
                             setShowAddStudentDialog(true);
+                            setIsAddingStudentsToNewClass(false);
                           }}
                         >
                           <UserPlus className="mr-2 h-4 w-4" />
                           Add Student
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditClass(classItem)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit Class
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDeleteClass(classItem.id)}>
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -375,9 +445,8 @@ export const ClassManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Create Class Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Create New Class</DialogTitle>
             <DialogDescription>
@@ -409,10 +478,51 @@ export const ClassManagement: React.FC = () => {
                 onChange={(e) => setNewClassDescription(e.target.value)}
               />
             </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">
+                  Students
+                </label>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAddStudentsToNewClass}
+                >
+                  <UserPlus className="mr-1 h-3 w-3" />
+                  Add Students
+                </Button>
+              </div>
+              <div className="border rounded-md p-2 min-h-[80px] max-h-[150px] overflow-y-auto">
+                {selectedStudents.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedStudents.map(studentId => {
+                      const student = students.find(s => s.id === studentId);
+                      return (
+                        <Badge variant="secondary" key={studentId} className="px-2 py-1 flex items-center gap-1">
+                          {student?.name}
+                          <X 
+                            className="h-3 w-3 cursor-pointer" 
+                            onClick={() => handleRemoveSelectedStudent(studentId)} 
+                          />
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                    No students added yet
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowCreateDialog(false);
+              setSelectedStudents([]);
+            }}>
               Cancel
             </Button>
             <Button onClick={handleCreateClass}>Create Class</Button>
@@ -420,13 +530,19 @@ export const ClassManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Add Student Dialog */}
-      <Dialog open={showAddStudentDialog} onOpenChange={setShowAddStudentDialog}>
+      <Dialog open={showAddStudentDialog} onOpenChange={(open) => {
+        setShowAddStudentDialog(open);
+        if (!open) {
+          setIsAddingStudentsToNewClass(false);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Student to Class</DialogTitle>
             <DialogDescription>
-              Enter the student's email address to add them to this class.
+              {isAddingStudentsToNewClass 
+                ? "Add students to your new class." 
+                : "Enter the student's email address to add them to this class."}
             </DialogDescription>
           </DialogHeader>
           
@@ -453,6 +569,86 @@ export const ClassManagement: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Drawer open={showEditClassDrawer} onOpenChange={setShowEditClassDrawer}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Edit Class</DrawerTitle>
+            <DrawerDescription>Make changes to the class details.</DrawerDescription>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="edit-name" className="text-sm font-medium">
+                Class Name
+              </label>
+              <Input
+                id="edit-name"
+                value={editingClass?.name || ""}
+                onChange={(e) => 
+                  setEditingClass(editingClass ? {...editingClass, name: e.target.value} : null)
+                }
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="edit-description" className="text-sm font-medium">
+                Description
+              </label>
+              <Input
+                id="edit-description"
+                value={editingClass?.description || ""}
+                onChange={(e) => 
+                  setEditingClass(editingClass ? {...editingClass, description: e.target.value} : null)
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Students</label>
+              <div className="border rounded-md p-3 max-h-[250px] overflow-y-auto space-y-2">
+                {editingClass?.studentIds.map(studentId => {
+                  const student = students.find(s => s.id === studentId);
+                  if (!student) return null;
+                  
+                  return (
+                    <div key={student.id} className="flex items-center justify-between bg-muted/40 p-2 rounded-md">
+                      <div>
+                        <div className="font-medium">{student.name}</div>
+                        <div className="text-xs text-muted-foreground">{student.email}</div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                          if (editingClass) {
+                            setEditingClass({
+                              ...editingClass,
+                              studentIds: editingClass.studentIds.filter(id => id !== student.id)
+                            });
+                          }
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+                {!editingClass?.studentIds.length && (
+                  <div className="text-sm text-muted-foreground text-center py-4">
+                    No students in this class
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <DrawerFooter>
+            <Button onClick={handleUpdateClass}>Save Changes</Button>
+            <Button variant="outline" onClick={() => setShowEditClassDrawer(false)}>
+              Cancel
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 };
