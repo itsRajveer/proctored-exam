@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Lock, User } from "lucide-react";
@@ -46,12 +47,8 @@ const Login = () => {
         description: `Welcome to the ExamEye portal, ${user.name}`,
       });
       
-      // Navigate based on user role
-      if (user.role === "student") {
-        navigate("/student/dashboard");
-      } else if (user.role === "teacher") {
-        navigate("/teacher/dashboard");
-      }
+      // Navigate to dashboard regardless of user role
+      navigate("/dashboard");
     } catch (error) {
       toast({
         variant: "destructive",

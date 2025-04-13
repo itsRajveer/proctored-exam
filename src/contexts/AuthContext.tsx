@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, AuthContextType } from "../types";
 import { initializeApp } from "firebase/app";
@@ -37,8 +38,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for saved user in localStorage
-    const savedUser = localStorage.getItem("user");
+    // Generate a unique session ID for this window/tab
+    const sessionId = window.sessionStorage.getItem('sessionId') || 
+      `session_${Math.random().toString(36).substring(2, 9)}`;
+    window.sessionStorage.setItem('sessionId', sessionId);
+    
+    // Check for saved user in sessionStorage (not localStorage) for this specific window/tab
+    const savedUser = sessionStorage.getItem(`user_${sessionId}`);
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
@@ -68,7 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const userCredential = await signInWithCustomToken(auth, data.customToken);
       const firebaseUser = userCredential.user;
       
-      // Save user to state and localStorage
+      // Save user to state and sessionStorage (not localStorage) for this specific window/tab
       const userData = {
         id: firebaseUser.uid,
         name: data.user.name,
@@ -78,7 +84,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
       
       setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
+      
+      // Use session storage instead of local storage
+      const sessionId = window.sessionStorage.getItem('sessionId') || 
+        `session_${Math.random().toString(36).substring(2, 9)}`;
+      window.sessionStorage.setItem('sessionId', sessionId);
+      sessionStorage.setItem(`user_${sessionId}`, JSON.stringify(userData));
       
       return userData;
     } catch (error) {
@@ -95,9 +106,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Sign out from Firebase
       await signOut(auth);
       
-      // Clear user from state and localStorage
+      // Clear user from state and sessionStorage
       setUser(null);
-      localStorage.removeItem("user");
+      const sessionId = window.sessionStorage.getItem('sessionId');
+      if (sessionId) {
+        sessionStorage.removeItem(`user_${sessionId}`);
+      }
     } catch (error) {
       console.error("Logout failed:", error);
     } finally {
