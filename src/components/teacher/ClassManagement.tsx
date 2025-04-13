@@ -47,14 +47,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Class, Student } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-  DrawerFooter,
-} from "@/components/ui/drawer";
 
 const mockClasses: Class[] = [
   {
@@ -122,7 +114,7 @@ export const ClassManagement: React.FC = () => {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [showAddStudentDialog, setShowAddStudentDialog] = useState(false);
   const [studentEmail, setStudentEmail] = useState("");
-  const [showEditClassDrawer, setShowEditClassDrawer] = useState(false);
+  const [showEditClassDialog, setShowEditClassDialog] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [isAddingStudentsToNewClass, setIsAddingStudentsToNewClass] = useState(false);
@@ -264,7 +256,7 @@ export const ClassManagement: React.FC = () => {
 
   const handleEditClass = (classItem: Class) => {
     setEditingClass(classItem);
-    setShowEditClassDrawer(true);
+    setShowEditClassDialog(true);
   };
 
   const handleUpdateClass = () => {
@@ -275,7 +267,7 @@ export const ClassManagement: React.FC = () => {
     );
     
     setClasses(updatedClasses);
-    setShowEditClassDrawer(false);
+    setShowEditClassDialog(false);
     
     toast({
       title: "Class Updated",
@@ -392,8 +384,8 @@ export const ClassManagement: React.FC = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="flex flex-col items-start pt-1">
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="students">
+                  <Accordion type="single" collapsible className="w-full" value={`students-${classItem.id}`}>
+                    <AccordionItem value={`students-${classItem.id}`}>
                       <AccordionTrigger className="text-sm py-2">
                         Students List
                       </AccordionTrigger>
@@ -570,13 +562,13 @@ export const ClassManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <Drawer open={showEditClassDrawer} onOpenChange={setShowEditClassDrawer}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Edit Class</DrawerTitle>
-            <DrawerDescription>Make changes to the class details.</DrawerDescription>
-          </DrawerHeader>
-          <div className="p-4 space-y-4">
+      <Dialog open={showEditClassDialog} onOpenChange={setShowEditClassDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Class</DialogTitle>
+            <DialogDescription>Make changes to the class details.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label htmlFor="edit-name" className="text-sm font-medium">
                 Class Name
@@ -605,7 +597,7 @@ export const ClassManagement: React.FC = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Students</label>
-              <div className="border rounded-md p-3 max-h-[250px] overflow-y-auto space-y-2">
+              <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto space-y-2">
                 {editingClass?.studentIds.map(studentId => {
                   const student = students.find(s => s.id === studentId);
                   if (!student) return null;
@@ -641,14 +633,14 @@ export const ClassManagement: React.FC = () => {
               </div>
             </div>
           </div>
-          <DrawerFooter>
+          <DialogFooter>
             <Button onClick={handleUpdateClass}>Save Changes</Button>
-            <Button variant="outline" onClick={() => setShowEditClassDrawer(false)}>
+            <Button variant="outline" onClick={() => setShowEditClassDialog(false)}>
               Cancel
             </Button>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
