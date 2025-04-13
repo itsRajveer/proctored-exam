@@ -179,7 +179,7 @@ export const DashboardLayout = () => {
             <div className="container max-w-7xl px-4 py-6 md:px-6 lg:py-8">
               {/* Make SidebarTrigger more prominent */}
               <div className="mb-6 flex items-center">
-                <SidebarTrigger className="lg:hidden flex items-center gap-2 border rounded-md p-2">
+                <SidebarTrigger className="flex items-center gap-2 border rounded-md p-2">
                   <Menu className="h-5 w-5" />
                   <span className="text-sm">Menu</span>
                 </SidebarTrigger>
