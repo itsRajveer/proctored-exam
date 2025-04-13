@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { 
   ChevronDown,
@@ -6,7 +7,6 @@ import {
   Trash2,
   UserPlus,
   X,
-  GraduationCap,
   FileText,
   Users,
   Edit
@@ -28,7 +28,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -49,6 +48,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Class, Student } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
 
+// Mock data
 const mockClasses: Class[] = [
   {
     id: "c1",
@@ -119,7 +119,16 @@ export const ClassManagement: React.FC = () => {
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [isAddingStudentsToNewClass, setIsAddingStudentsToNewClass] = useState(false);
-  const [openAccordion, setOpenAccordion] = useState<string | undefined>(undefined);
+  
+  // Track which accordion items are open individually
+  const [openAccordionItems, setOpenAccordionItems] = useState<Record<string, boolean>>({});
+
+  const toggleAccordion = (accordionId: string) => {
+    setOpenAccordionItems(prev => ({
+      ...prev,
+      [accordionId]: !prev[accordionId]
+    }));
+  };
 
   const filteredClasses = classes.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -293,10 +302,6 @@ export const ClassManagement: React.FC = () => {
     setShowAddStudentDialog(true);
   };
 
-  const handleAccordionValueChange = (value: string) => {
-    setOpenAccordion(value === openAccordion ? undefined : value);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -339,6 +344,8 @@ export const ClassManagement: React.FC = () => {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredClasses.map((classItem) => {
             const stats = getClassStats(classItem.id);
+            const accordionId = `students-${classItem.id}`;
+            const isAccordionOpen = openAccordionItems[accordionId] || false;
             
             return (
               <Card key={classItem.id} className="overflow-hidden">
@@ -390,21 +397,22 @@ export const ClassManagement: React.FC = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="flex flex-col items-start pt-1">
-                  <Accordion 
-                    type="single" 
-                    collapsible 
-                    className="w-full" 
-                    value={openAccordion === `students-${classItem.id}` ? `students-${classItem.id}` : undefined}
-                    onValueChange={handleAccordionValueChange}
-                  >
-                    <AccordionItem value={`students-${classItem.id}`}>
-                      <AccordionTrigger className="text-sm py-2">
-                        Students List
-                      </AccordionTrigger>
-                      <AccordionContent>
+                  <div className="w-full">
+                    <button 
+                      onClick={() => toggleAccordion(accordionId)}
+                      className="flex w-full items-center justify-between py-2 text-sm font-medium hover:underline"
+                    >
+                      Students List
+                      <ChevronDown 
+                        className={`h-4 w-4 transition-transform duration-200 ${isAccordionOpen ? 'rotate-180' : ''}`} 
+                      />
+                    </button>
+                    
+                    {isAccordionOpen && (
+                      <div className="pt-2 pb-4">
                         {classItem.studentIds.length > 0 ? (
-                          <ScrollArea className="max-h-[200px]">
-                            <div className="space-y-2">
+                          <ScrollArea className="h-[200px] w-full rounded-md border">
+                            <div className="p-4 space-y-2">
                               {classItem.studentIds.map((studentId) => {
                                 const student = students.find((s) => s.id === studentId);
                                 if (!student) return null;
@@ -441,9 +449,9 @@ export const ClassManagement: React.FC = () => {
                             No students in this class
                           </div>
                         )}
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
+                      </div>
+                    )}
+                  </div>
                 </CardFooter>
               </Card>
             );
@@ -577,12 +585,12 @@ export const ClassManagement: React.FC = () => {
       </Dialog>
 
       <Dialog open={showEditClassDialog} onOpenChange={setShowEditClassDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Class</DialogTitle>
             <DialogDescription>Make changes to the class details.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label htmlFor="edit-name" className="text-sm font-medium">
                 Class Name
