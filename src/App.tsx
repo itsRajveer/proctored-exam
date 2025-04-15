@@ -9,16 +9,16 @@ import Index from "@/pages/Index";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/NotFound";
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { SignalingService } from '@/services/signalingService';
 
 // Create a client
 const queryClient = new QueryClient();
 
 const App = () => {
-  console.log('App component rendering');
-  
+  const signalingService = SignalingService.getInstance();
+
   return (
-    <ErrorBoundary>
+    <React.StrictMode>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
@@ -35,7 +35,7 @@ const App = () => {
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
-    </ErrorBoundary>
+    </React.StrictMode>
   );
 };
 

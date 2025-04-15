@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   AlertTriangle, 
@@ -30,11 +30,14 @@ import { CameraFeed } from "../common/CameraFeed";
 import { AIMonitor } from "../common/AIMonitor";
 import { Exam, Question } from "@/types";
 import { examSubmissionService } from "@/services/examSubmissionService";
+import { MonitoringService, MonitoringSession } from "@/services/monitoringService";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const ExamView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -50,6 +53,12 @@ export const ExamView: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showFullScreenExitDialog, setShowFullScreenExitDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [monitoringSession, setMonitoringSession] = useState<MonitoringSession | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const monitoringServiceInstance = MonitoringService.getInstance();
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const fetchExam = async () => {
@@ -234,10 +243,63 @@ export const ExamView: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!loading && exam) {
-      toggleFullScreen();
-    }
-  }, [loading, exam]);
+    const initializeMonitoring = async () => {
+      try {
+        if (!exam?.id) {
+          console.error('No exam ID available');
+          return;
+        }
+
+        // Get user media first
+        const localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+
+        // Set up local video element
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = localStream;
+          await localVideoRef.current.play();
+        }
+
+        // Start monitoring session
+        const session = await monitoringServiceInstance.startMonitoringSession(exam.id);
+        sessionIdRef.current = session.id;
+        
+        // Set up signaling
+        await monitoringServiceInstance.setupSignaling(session.id, localStream);
+
+        // Set up stream handler
+        const streamHandler = (stream: MediaStream) => {
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = stream;
+            remoteVideoRef.current.play().catch(error => {
+              console.error('Error playing remote video:', error);
+            });
+          }
+        };
+
+        monitoringServiceInstance.onStream(streamHandler);
+
+        return () => {
+          monitoringServiceInstance.offStream(streamHandler);
+          localStream.getTracks().forEach(track => track.stop());
+          if (sessionIdRef.current) {
+            monitoringServiceInstance.endMonitoring(sessionIdRef.current);
+          }
+        };
+      } catch (error) {
+        console.error('Error initializing monitoring:', error);
+        toast({
+          title: "Error",
+          description: "Failed to initialize camera monitoring",
+          variant: "destructive",
+        });
+      }
+    };
+
+    initializeMonitoring();
+  }, [exam?.id]);
 
   if (loading) {
     return (
@@ -423,7 +485,38 @@ export const ExamView: React.FC = () => {
         </div>
 
         <div className="lg:w-1/4 space-y-4">
-          <CameraFeed isRecording={true} className="w-full" />
+          <div className="flex flex-col h-full">
+            <div className="flex-1 p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                {/* Local Video */}
+                <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2">
+                    <p className="text-white text-sm">Your Camera</p>
+                  </div>
+                </div>
+
+                {/* Remote Video */}
+                {/* <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2">
+                    <p className="text-white text-sm">Teacher's View</p>
+                  </div>
+                </div> */}
+              </div>
+            </div>
+          </div>
           <AIMonitor onViolation={handleViolation} />
           
           {violations.length > 0 && (

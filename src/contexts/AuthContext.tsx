@@ -50,13 +50,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (savedUser) {
           userData = JSON.parse(savedUser);
         } else {
-          userData = {
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-            email: firebaseUser.email || '',
-            role: 'teacher', // Default role, will be updated by the backend
-            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User')}`,
-          };
+          // Get user profile from backend
+          const response = await fetch(`http://localhost:5000/api/auth/profile`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          
+          if (response.ok) {
+            const profile = await response.json();
+            userData = {
+              id: firebaseUser.uid,
+              name: profile.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              email: firebaseUser.email || '',
+              role: profile.role || 'teacher',
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User')}`,
+            };
+          } else {
+            userData = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              email: firebaseUser.email || '',
+              role: 'teacher', // Default role, will be updated by the backend
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User')}`,
+            };
+          }
           localStorage.setItem("user", JSON.stringify(userData));
         }
         

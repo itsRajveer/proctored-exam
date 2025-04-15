@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Bell, Clock, Filter, Shield, User, Video, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,82 +10,221 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CameraFeed } from "../common/CameraFeed";
+import { AIMonitor } from "../common/AIMonitor";
 import { useToast } from "@/components/ui/use-toast";
-import { WebRTCService } from "@/services/webrtcService";
-import { monitoringService } from "@/services/monitoringService";
-import { getAuth } from "firebase/auth";
+import monitoringService, { MonitoringSession } from "@/services/monitoringService";
 import { examService } from "@/services/examService";
+import { Exam } from "@/types";
+import { Box, Typography, Paper, Grid, CircularProgress } from '@mui/material';
+import { toast } from 'react-toastify';
 
-interface MonitoringSession {
-  id: string;
-  examId: string;
-  studentId: string;
-  studentName: string;
-  studentEmail: string;
-  status: 'active' | 'ended';
-  violations: number;
-  lastViolationTime: string | null;
-  peerId: string | null;
-  aiFlags: Array<{
-    type: string;
-    description: string;
-    timestamp: string;
-  }>;
+// Adding explicit type for student status
+type StudentStatus = "active" | "warning" | "flagged" | "offline";
+
+interface StudentCardProps {
+  student: MonitoringSession;
+  onView: (id: string) => void;
+  isExpanded: boolean;
 }
 
-export const StudentMonitor: React.FC = () => {
-  const { toast } = useToast();
-  const auth = getAuth();
-  const [selectedExam, setSelectedExam] = useState("");
-  const [exams, setExams] = useState<Array<{ id: string; title: string }>>([]);
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "warning" | "flagged">("all");
-  const [expandedStudentId, setExpandedStudentId] = useState("");
-  const [alertsEnabled, setAlertsEnabled] = useState(true);
-  const [sessions, setSessions] = useState<MonitoringSession[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const webrtcRef = useRef<WebRTCService | null>(null);
+const StudentCard: React.FC<StudentCardProps> = ({ student, onView, isExpanded }) => {
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamHandlerRef = useRef<((stream: MediaStream) => void) | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch exams
   useEffect(() => {
-    const fetchExams = async () => {
+    if (!student || !student.id) {
+      setError('Invalid student data');
+      setIsLoading(false);
+      return;
+    }
+
+    const setupStream = async () => {
       try {
-        const response = await examService.getTeacherExams();
-        setExams(response);
-        if (response.length > 0 && !selectedExam) {
-          setSelectedExam(response[0].id);
-        }
+        setIsLoading(true);
+        setError(null);
+
+        // Subscribe to stream updates
+        const handleStream = (newStream: MediaStream) => {
+          console.log('Received new stream:', newStream);
+          setStream(newStream);
+          if (videoRef.current) {
+            videoRef.current.srcObject = newStream;
+            videoRef.current.play().catch(error => {
+              console.error('Error playing video:', error);
+              setError('Failed to play video stream');
+            });
+            setIsLoading(false);
+          }
+        };
+
+        // Store the handler reference
+        streamHandlerRef.current = handleStream;
+        monitoringService.onStream(handleStream);
+
+        // Start monitoring session
+        await monitoringService.startMonitoringSession(student.examId);
+
+        // Setup teacher connection
+        await monitoringService.setupTeacherConnection(student.id);
+
+        // Set a timeout to handle cases where stream is not received
+        const timeoutId = setTimeout(() => {
+          if (isLoading) {
+            setError('Connection timeout - stream not received');
+            setIsLoading(false);
+          }
+        }, 10000); // 10 second timeout
+
+        return () => {
+          clearTimeout(timeoutId);
+          if (streamHandlerRef.current) {
+            monitoringService.offStream(streamHandlerRef.current);
+            streamHandlerRef.current = null;
+          }
+          if (videoRef.current) {
+            videoRef.current.srcObject = null;
+          }
+        };
       } catch (err) {
-        console.error('Failed to fetch exams:', err);
-        toast({
-          title: "Error",
-          description: "Failed to fetch exams",
-          variant: "destructive",
-        });
+        console.error('Error setting up stream:', err);
+        setError('Failed to setup video stream');
+        setIsLoading(false);
       }
     };
 
-    fetchExams();
-  }, [toast]);
+    if (isExpanded) {
+      setupStream();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isExpanded, student, monitoringService]);
 
-  // Fetch monitoring sessions
+  const getStatus = (violations: any[]): StudentStatus => {
+    if (!violations) return "offline";
+    if (violations.length > 5) return "flagged";
+    if (violations.length > 2) return "warning";
+    return "active";
+  };
+
+  // Memoize the status calculation
+  const status = useMemo(() => getStatus(student?.violations || []), [student?.violations]);
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 rounded-lg">
+        <p className="text-red-600">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <Card className={`overflow-hidden ${
+      status === "flagged" ? "border-red-500" : 
+      status === "warning" ? "border-yellow-500" : ""
+    }`}>
+      <CardContent className="p-4">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center">
+            <div className={`h-3 w-3 rounded-full mr-2 ${
+              status === "active" ? "bg-green-500" : 
+              status === "warning" ? "bg-yellow-500" : 
+              status === "flagged" ? "bg-red-500 animate-pulse" : 
+              "bg-gray-400"
+            }`} />
+            <h3 className="font-medium">{student.studentName || 'Unknown Student'}</h3>
+          </div>
+          
+          {student.violations?.length > 0 && (
+            <Badge variant="destructive" className="ml-2">
+              {student.violations.length} violations
+            </Badge>
+          )}
+        </div>
+        
+        <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden">
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <p className="ml-2 text-sm text-gray-600">Connecting to student...</p>
+            </div>
+          )}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+        </div>
+
+        {student.violations?.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Violations:</h4>
+            <ul className="space-y-1">
+              {student.violations.map((violation, index) => (
+                <li key={index} className="text-sm text-red-600">
+                  {new Date(violation.timestamp).toLocaleTimeString()} - {violation.type}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        {!isExpanded ? (
+          <Button 
+            onClick={() => onView(student.id)}
+            className="w-full"
+            variant="secondary"
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            Monitor Student
+          </Button>
+        ) : (
+          <div className="space-y-4">
+            <AIMonitor />
+            <Button 
+              onClick={() => onView("")}
+              className="w-full"
+              variant="outline"
+            >
+              <EyeOff className="mr-2 h-4 w-4" />
+              Close View
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+export const StudentMonitor: React.FC = () => {
+  const { toast } = useToast();
+  const [selectedExam, setSelectedExam] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<"all" | StudentStatus>("all");
+  const [expandedStudentId, setExpandedStudentId] = useState<string>("");
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
+  const [activeSessions, setActiveSessions] = useState<MonitoringSession[]>([]);
+  const [ongoingExams, setOngoingExams] = useState<Exam[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Single useEffect for initial data fetch
   useEffect(() => {
-    const fetchSessions = async () => {
-      if (!selectedExam) return;
-      
+    const fetchInitialData = async () => {
       try {
         setLoading(true);
-        const response = await monitoringService.getActiveSessions(selectedExam);
-        setSessions(response);
-        setError(null);
-      } catch (err) {
-        console.error('Failed to fetch monitoring sessions:', err);
-        setError("Failed to fetch monitoring sessions");
+        await Promise.all([
+          fetchOngoingExams(),
+          fetchActiveSessions()
+        ]);
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
         toast({
           title: "Error",
-          description: "Failed to fetch monitoring sessions",
+          description: "Failed to fetch initial data",
           variant: "destructive",
         });
       } finally {
@@ -93,62 +232,61 @@ export const StudentMonitor: React.FC = () => {
       }
     };
 
-    if (selectedExam) {
-      fetchSessions();
-      const interval = setInterval(fetchSessions, 5000); // Refresh every 5 seconds
-      return () => clearInterval(interval);
-    }
-  }, [selectedExam, toast]);
+    fetchInitialData();
+  }, []);
 
-  const handleViewStudent = async (sessionId: string) => {
-    if (sessionId === expandedStudentId) {
-      // Stop monitoring
-      if (webrtcRef.current) {
-        webrtcRef.current.cleanup();
-        webrtcRef.current = null;
+  // Separate useEffect for polling active sessions
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!loading) { // Only fetch if not already loading
+        fetchActiveSessions();
       }
-      setExpandedStudentId("");
-      return;
-    }
+    }, 10000); // Poll every 10 seconds instead of 5
 
-    const session = sessions.find(s => s.id === sessionId);
-    if (!session || !session.peerId) return;
+    return () => clearInterval(interval);
+  }, [loading]);
 
+  const fetchOngoingExams = async () => {
     try {
-      // Initialize WebRTC
-      webrtcRef.current = new WebRTCService();
-      await webrtcRef.current.startLocalStream();
-      
-      // Start signaling
-      webrtcRef.current.startSignaling(sessionId, auth.currentUser?.uid || '', (stream) => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+      const exams = await examService.getTeacherExams();
+      const ongoing = exams.filter(exam => {
+        const now = new Date();
+        const startTime = new Date(exam.startTime);
+        const endTime = new Date(exam.endTime);
+        return now >= startTime && now <= endTime;
       });
-
-      // Create and send offer
-      const offer = await webrtcRef.current.createOffer(session.peerId);
-      await webrtcRef.current.sendSignalingMessage(
-        sessionId,
-        auth.currentUser?.uid || '',
-        session.peerId,
-        'offer',
-        offer
-      );
-
-      setExpandedStudentId(sessionId);
+      setOngoingExams(ongoing);
     } catch (error) {
-      console.error('Error starting monitoring:', error);
+      console.error('Error fetching ongoing exams:', error);
       toast({
         title: "Error",
-        description: "Failed to start video monitoring",
+        description: "Failed to fetch ongoing exams",
         variant: "destructive",
       });
     }
   };
 
+  const fetchActiveSessions = async () => {
+    try {
+      const sessions = await monitoringService.getActiveSessions();
+      setActiveSessions(sessions);
+    } catch (error) {
+      console.error('Error fetching active sessions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch active sessions",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewStudent = (studentId: string) => {
+    setExpandedStudentId(studentId === expandedStudentId ? "" : studentId);
+  };
+
   const handleToggleAlerts = () => {
     setAlertsEnabled(!alertsEnabled);
+    
     toast({
       title: alertsEnabled ? "Alerts Disabled" : "Alerts Enabled",
       description: alertsEnabled 
@@ -157,15 +295,33 @@ export const StudentMonitor: React.FC = () => {
     });
   };
 
-  // Filter sessions based on selected status
-  const filteredSessions = filterStatus === "all" 
-    ? sessions 
-    : sessions.filter(session => {
-        if (filterStatus === "active") return session.violations === 0;
-        if (filterStatus === "warning") return session.violations > 0 && session.violations < 3;
-        if (filterStatus === "flagged") return session.violations >= 3;
-        return true;
+  // Filter students based on selected status
+  const filteredStudents = filterStatus === "all" 
+    ? activeSessions 
+    : activeSessions.filter(session => {
+        const violations = session.violations;
+        if (filterStatus === "flagged") return violations.length > 5;
+        if (filterStatus === "warning") return violations.length > 2 && violations.length <= 5;
+        return violations.length <= 2;
       });
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (activeSessions.length === 0) {
+    return (
+      <Box p={3}>
+        <Typography variant="h6" color="textSecondary">
+          No active monitoring sessions
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -195,7 +351,7 @@ export const StudentMonitor: React.FC = () => {
             <SelectValue placeholder="Select Exam" />
           </SelectTrigger>
           <SelectContent>
-            {exams.map((exam) => (
+            {ongoingExams.map((exam) => (
               <SelectItem key={exam.id} value={exam.id}>
                 {exam.title}
               </SelectItem>
@@ -220,114 +376,38 @@ export const StudentMonitor: React.FC = () => {
         </div>
       </div>
       
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-        </div>
-      ) : error ? (
-        <div className="flex items-center justify-center h-64">
-          <p className="text-red-500">{error}</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {expandedStudentId ? (
-            // Show only the expanded student
-            <div className="col-span-full">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center">
-                      <div className="h-3 w-3 rounded-full mr-2 bg-green-500" />
-                      <h3 className="font-medium">
-                        {sessions.find(s => s.id === expandedStudentId)?.studentName}
-                      </h3>
-                    </div>
-                    <Button 
-                      onClick={() => handleViewStudent(expandedStudentId)}
-                      variant="outline"
-                    >
-                      <EyeOff className="mr-2 h-4 w-4" />
-                      Close View
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="w-full h-auto aspect-video bg-black/10 relative">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute bottom-2 right-2 bg-black/60 text-white px-2 py-1 text-xs rounded">
-                        Student Camera
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h4 className="font-medium">AI Monitoring</h4>
-                      <div className="space-y-1">
-                        {sessions.find(s => s.id === expandedStudentId)?.aiFlags.map((flag, index) => (
-                          <div key={index} className="text-sm text-red-500">
-                            {new Date(flag.timestamp).toLocaleTimeString()} - {flag.description}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            // Show all students
-            filteredSessions.map((session) => (
-              <Card key={session.id} className={`overflow-hidden ${
-                session.violations >= 3 ? "border-red-500" : 
-                session.violations > 0 ? "border-yellow-500" : ""
-              }`}>
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center">
-                      <div className={`h-3 w-3 rounded-full mr-2 ${
-                        session.violations === 0 ? "bg-green-500" : 
-                        session.violations < 3 ? "bg-yellow-500" : 
-                        "bg-red-500 animate-pulse"
-                      }`} />
-                      <h3 className="font-medium">{session.studentName}</h3>
-                    </div>
-                    
-                    {session.violations > 0 && (
-                      <Badge variant="destructive" className="ml-2">
-                        {session.violations} violations
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <Button 
-                    onClick={() => handleViewStudent(session.id)}
-                    className="w-full"
-                    variant="secondary"
-                    disabled={!session.peerId}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    Monitor Student
-                  </Button>
-                </CardContent>
-              </Card>
-            ))
-          )}
-          
-          {filteredSessions.length === 0 && (
-            <div className="col-span-full text-center py-12">
-              <User className="h-12 w-12 mx-auto text-gray-400" />
-              <h3 className="mt-4 text-lg font-medium">No Students Found</h3>
-              <p className="mt-2 text-sm text-gray-500">
-                No students match the selected filter criteria.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {expandedStudentId ? (
+          // Show only the expanded student
+          <div className="col-span-full">
+            <StudentCard 
+              student={activeSessions.find(s => s.id === expandedStudentId)!} 
+              onView={handleViewStudent}
+              isExpanded={true}
+            />
+          </div>
+        ) : (
+          // Show all students
+          filteredStudents.map((student) => (
+            <StudentCard 
+              key={student.id} 
+              student={student} 
+              onView={handleViewStudent}
+              isExpanded={false}
+            />
+          ))
+        )}
+        
+        {filteredStudents.length === 0 && (
+          <div className="col-span-full text-center py-12">
+            <User className="h-12 w-12 mx-auto text-gray-400" />
+            <h3 className="mt-4 text-lg font-medium">No Students Found</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              No students match the selected filter criteria.
+            </p>
+          </div>
+        )}
+      </div>
       
       <div className="flex items-center justify-between bg-muted/50 rounded-lg p-4">
         <div className="flex items-center">
