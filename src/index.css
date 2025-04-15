@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -112,4 +111,22 @@
   position: absolute;
   border: 2px solid #3b82f6;
   background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Exam mode styles */
+body.exam-mode {
+  overflow: hidden;
+}
+
+body.exam-mode .sidebar {
+  display: none !important;
+}
+
+body.exam-mode .header {
+  display: none !important;
+}
+
+body.exam-mode main {
+  margin-left: 0 !important;
+  padding-top: 0 !important;
 }

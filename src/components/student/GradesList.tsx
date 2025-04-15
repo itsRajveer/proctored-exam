@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -15,82 +14,74 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FileText, TrendingUp } from "lucide-react";
-
-// Mock data
-const mockGrades = [
-  {
-    id: "g1",
-    examId: "e1",
-    examTitle: "Mid-term Mathematics",
-    date: "2025-03-15",
-    score: 85,
-    totalPoints: 100,
-    percentage: 85,
-    grade: "B",
-    feedback: "Good work on the algebraic equations. Work on geometry concepts."
-  },
-  {
-    id: "g2",
-    examId: "e2",
-    examTitle: "Introduction to Physics",
-    date: "2025-03-05",
-    score: 92,
-    totalPoints: 100,
-    percentage: 92,
-    grade: "A",
-    feedback: "Excellent understanding of mechanics principles."
-  },
-  {
-    id: "g3",
-    examId: "e3",
-    examTitle: "English Literature Quiz",
-    date: "2025-02-20",
-    score: 78,
-    totalPoints: 100,
-    percentage: 78,
-    grade: "C",
-    feedback: "Good analysis of themes. Work more on character development interpretation."
-  },
-  {
-    id: "g4",
-    examId: "e4",
-    examTitle: "Chemistry Lab Test",
-    date: "2025-02-10",
-    score: 88,
-    totalPoints: 100,
-    percentage: 88,
-    grade: "B+",
-    feedback: "Strong on lab procedures, need improvement on chemical equations."
-  },
-];
-
-const chartData = [
-  { name: "Mathematics", score: 85, average: 79 },
-  { name: "Physics", score: 92, average: 75 },
-  { name: "English", score: 78, average: 81 },
-  { name: "Chemistry", score: 88, average: 76 },
-];
-
-const gradeDistribution = [
-  { name: "A", value: 1 },
-  { name: "B", value: 2 },
-  { name: "C", value: 1 },
-  { name: "D", value: 0 },
-  { name: "F", value: 0 },
-];
+import { gradesService, Grade, GradeStatistics } from "@/services/gradesService";
+import { toast } from "sonner";
 
 const COLORS = ["#4ade80", "#60a5fa", "#fb923c", "#f87171", "#a1a1aa"];
 
 export const GradesList: React.FC = () => {
-  const [selectedPeriod, setSelectedPeriod] = React.useState("all");
-  
-  const totalExams = mockGrades.length;
-  const averageScore = Math.round(
-    mockGrades.reduce((acc, grade) => acc + grade.percentage, 0) / totalExams
-  );
-  
-  const highestScore = Math.max(...mockGrades.map((grade) => grade.percentage));
-  const lowestScore = Math.min(...mockGrades.map((grade) => grade.percentage));
+  const [selectedPeriod, setSelectedPeriod] = useState("all");
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [statistics, setStatistics] = useState<GradeStatistics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchGrades = async () => {
+      try {
+        setLoading(true);
+        const response = await gradesService.getStudentGrades();
+        setGrades(response.grades);
+        setStatistics(response.statistics);
+      } catch (err) {
+        setError("Failed to fetch grades. Please try again later.");
+        toast.error("Failed to fetch grades");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGrades();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500">{error}</p>
+      </div>
+    );
+  }
+
+  if (!statistics || grades.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">No grades available yet.</p>
+      </div>
+    );
+  }
+
+  // Prepare data for charts
+  const chartData = grades.map(grade => ({
+    name: grade.examTitle,
+    score: grade.percentage,
+    average: grade.classAverage || 0 // Use real class average from API
+  }));
+
+  const gradeDistribution = [
+    { name: "A", value: statistics.gradeDistribution.A },
+    { name: "B", value: statistics.gradeDistribution.B },
+    { name: "C", value: statistics.gradeDistribution.C },
+    { name: "D", value: statistics.gradeDistribution.D },
+    { name: "F", value: statistics.gradeDistribution.F },
+  ];
 
   return (
     <div className="space-y-6">
@@ -122,7 +113,7 @@ export const GradesList: React.FC = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{averageScore}%</div>
+            <div className="text-2xl font-bold">{statistics.averageScore}%</div>
           </CardContent>
         </Card>
         <Card>
@@ -133,7 +124,7 @@ export const GradesList: React.FC = () => {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalExams}</div>
+            <div className="text-2xl font-bold">{statistics.totalExams}</div>
           </CardContent>
         </Card>
         <Card>
@@ -144,7 +135,7 @@ export const GradesList: React.FC = () => {
             <div className="h-4 w-4 rounded-full bg-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{highestScore}%</div>
+            <div className="text-2xl font-bold">{statistics.highestScore}%</div>
           </CardContent>
         </Card>
         <Card>
@@ -155,7 +146,7 @@ export const GradesList: React.FC = () => {
             <div className="h-4 w-4 rounded-full bg-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{lowestScore}%</div>
+            <div className="text-2xl font-bold">{statistics.lowestScore}%</div>
           </CardContent>
         </Card>
       </div>
@@ -248,7 +239,7 @@ export const GradesList: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockGrades.map((grade) => (
+              {grades.map((grade) => (
                 <TableRow key={grade.id}>
                   <TableCell>{grade.examTitle}</TableCell>
                   <TableCell>{new Date(grade.date).toLocaleDateString()}</TableCell>

@@ -21,9 +21,12 @@ export interface Teacher extends User {
 export interface Class {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   teacherId: string;
   studentIds: string[];
+  students?: Student[];
+  examCount: number;
+  studentCount: number;
 }
 
 export interface Question {
@@ -33,19 +36,23 @@ export interface Question {
   options?: string[];
   correctAnswer?: string | number | boolean;
   points: number;
+  order?: number;
 }
 
 export interface Exam {
   id: string;
   title: string;
-  description?: string;
-  classId: string;
-  teacherId: string;
+  description: string;
+  duration: number;
+  startTime: string;
+  endTime: string;
   questions: Question[];
-  duration: number; // in minutes
-  startTime: Date | string;
-  endTime: Date | string;
-  isActive: boolean;
+  studentIds: string[];
+  teacherId: string;
+  classId: string;
+  status: 'draft' | 'scheduled' | 'in-progress' | 'completed';
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ExamAttempt {
@@ -90,4 +97,27 @@ export interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
+}
+
+export interface ExamSubmission {
+  id: string;
+  examId: string;
+  studentId: string;
+  studentName: string;
+  answers: {
+    questionId: string;
+    answer: string | number | boolean;
+  }[];
+  grades: Record<string, number>;
+  feedback: string;
+  status: 'submitted' | 'graded';
+  submittedAt: string;
+  gradedAt?: string;
+}
+
+export interface Answer {
+  questionId: string;
+  questionText: string;
+  answer: string | number | boolean;
+  grade?: number;
 }

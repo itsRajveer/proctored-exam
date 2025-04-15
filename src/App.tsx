@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -10,13 +9,16 @@ import Index from "@/pages/Index";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/NotFound";
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 // Create a client
 const queryClient = new QueryClient();
 
 const App = () => {
+  console.log('App component rendering');
+  
   return (
-    <React.StrictMode>
+    <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
@@ -33,7 +35,7 @@ const App = () => {
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
-    </React.StrictMode>
+    </ErrorBoundary>
   );
 };
 

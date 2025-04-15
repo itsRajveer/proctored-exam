@@ -1,6 +1,5 @@
-
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   BookOpen,
   LogOut,
@@ -23,9 +22,19 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   // Determine the right home link
   const homeLink = user ? "/dashboard" : "/";
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
@@ -66,7 +75,7 @@ export const Navbar = () => {
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => logout()}>
+                <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>

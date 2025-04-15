@@ -29,57 +29,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { CameraFeed } from "../common/CameraFeed";
 import { AIMonitor } from "../common/AIMonitor";
 import { Exam, Question } from "@/types";
-
-const mockExam: Exam = {
-  id: "e1",
-  title: "Mid-term Mathematics",
-  description: "Covers chapters 1-5 of the textbook",
-  classId: "c1",
-  teacherId: "t1",
-  questions: [
-    {
-      id: "q1",
-      text: "What is the value of π (pi) to two decimal places?",
-      type: "multiple-choice",
-      options: ["3.10", "3.14", "3.16", "3.18"],
-      correctAnswer: 1,
-      points: 5,
-    },
-    {
-      id: "q2",
-      text: "Solve the equation: 2x + 5 = 15",
-      type: "multiple-choice",
-      options: ["x = 5", "x = 7", "x = 10", "x = 15"],
-      correctAnswer: 0,
-      points: 5,
-    },
-    {
-      id: "q3",
-      text: "Explain the Pythagorean theorem in your own words.",
-      type: "text",
-      points: 10,
-    },
-    {
-      id: "q4",
-      text: "Is the statement 'All squares are rectangles' true or false?",
-      type: "true-false",
-      correctAnswer: true,
-      points: 5,
-    },
-    {
-      id: "q5",
-      text: "Solve for x: 3x² - 12 = 0",
-      type: "multiple-choice",
-      options: ["x = 2", "x = ±2", "x = 4", "x = ±4"],
-      correctAnswer: 1,
-      points: 5,
-    },
-  ],
-  duration: 90,
-  startTime: new Date().toISOString(),
-  endTime: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
-  isActive: true,
-};
+import { examSubmissionService } from "@/services/examSubmissionService";
 
 export const ExamView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -99,14 +49,55 @@ export const ExamView: React.FC = () => {
   }[]>([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showFullScreenExitDialog, setShowFullScreenExitDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setTimeout(() => {
-      setExam(mockExam);
-      setTimeRemaining(mockExam.duration * 60);
-      setLoading(false);
-    }, 1000);
-  }, [id]);
+    const fetchExam = async () => {
+      if (!id) return;
+      
+      try {
+        const response = await examSubmissionService.getExamDetails(id);
+        if (response.exam) {
+          setExam(response.exam);
+          setTimeRemaining(response.exam.duration * 60);
+          
+          // If there's a submission, set the answers
+          if (response.submission && response.submission.answers) {
+            setAnswers(response.submission.answers);
+          }
+        } else {
+          throw new Error('Invalid exam data received');
+        }
+      } catch (err: any) {
+        console.error('Error fetching exam:', err);
+        const errorMessage = err.response?.data?.error || 'Failed to load exam';
+        
+        if (errorMessage === 'You have already submitted this exam') {
+          // Show a more detailed message for submitted exams
+          toast({
+            variant: "destructive",
+            title: "Exam Already Submitted",
+            description: "You have already submitted this exam. You cannot access it again.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: errorMessage,
+          });
+        }
+        
+        // Navigate back to exams list after a short delay
+        setTimeout(() => {
+          navigate("/dashboard/exams");
+        }, 2000);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExam();
+  }, [id, navigate, toast]);
 
   useEffect(() => {
     if (!exam || timeRemaining <= 0) return;
@@ -146,6 +137,8 @@ export const ExamView: React.FC = () => {
       try {
         await document.documentElement.requestFullscreen();
         setIsFullScreen(true);
+        // Hide sidebar and header
+        document.body.classList.add('exam-mode');
       } catch (error) {
         console.error("Error attempting to enable full-screen mode:", error);
       }
@@ -153,6 +146,8 @@ export const ExamView: React.FC = () => {
       if (document.exitFullscreen) {
         await document.exitFullscreen();
         setIsFullScreen(false);
+        // Show sidebar and header
+        document.body.classList.remove('exam-mode');
       }
     }
   };
@@ -186,11 +181,22 @@ export const ExamView: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    toast({
-      title: "Exam Submitted",
-      description: "Your answers have been submitted successfully.",
-    });
-    navigate("/dashboard/exams");
+    if (!exam || !id) return;
+
+    try {
+      await examSubmissionService.submitExam(id, answers);
+      toast({
+        title: "Exam Submitted",
+        description: "Your answers have been submitted successfully.",
+      });
+      navigate("/dashboard/exams");
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to submit exam. Please try again.",
+      });
+    }
   };
 
   const handleNext = () => {
@@ -206,11 +212,25 @@ export const ExamView: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Progress Saved",
-      description: "Your answers have been saved.",
-    });
+  const handleSave = async () => {
+    if (!exam || !id) return;
+
+    setIsSaving(true);
+    try {
+      await examSubmissionService.saveExamProgress(id, answers);
+      toast({
+        title: "Progress Saved",
+        description: "Your answers have been saved successfully.",
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save progress. Please try again.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -371,9 +391,22 @@ export const ExamView: React.FC = () => {
             </Button>
 
             <div className="space-x-2">
-              <Button variant="outline" onClick={handleSave}>
-                <Save className="h-4 w-4 mr-2" />
-                Save
+              <Button 
+                variant="outline" 
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
               </Button>
               {currentQuestionIndex === exam.questions.length - 1 ? (
                 <Button onClick={() => setShowSubmitDialog(true)}>

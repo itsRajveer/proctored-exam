@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronDown,
   Plus,
@@ -9,7 +8,8 @@ import {
   X,
   FileText,
   Users,
-  Edit
+  Edit,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,67 +47,15 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Class, Student } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
-
-// Mock data
-const mockClasses: Class[] = [
-  {
-    id: "c1",
-    name: "Mathematics 101",
-    description: "Introduction to algebra and calculus",
-    teacherId: "t1",
-    studentIds: ["s1", "s2", "s3", "s4", "s5"]
-  },
-  {
-    id: "c2",
-    name: "Physics 101",
-    description: "Introduction to mechanics and thermodynamics",
-    teacherId: "t1",
-    studentIds: ["s1", "s2", "s3"]
-  }
-];
-
-const mockStudents: Student[] = [
-  {
-    id: "s1",
-    name: "John Doe",
-    email: "john@example.com",
-    role: "student",
-    classIds: ["c1", "c2"],
-  },
-  {
-    id: "s2",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    role: "student",
-    classIds: ["c1", "c2"],
-  },
-  {
-    id: "s3",
-    name: "Michael Brown",
-    email: "michael@example.com",
-    role: "student",
-    classIds: ["c1", "c2"],
-  },
-  {
-    id: "s4",
-    name: "Emily Johnson",
-    email: "emily@example.com",
-    role: "student",
-    classIds: ["c1"],
-  },
-  {
-    id: "s5",
-    name: "David Wilson",
-    email: "david@example.com",
-    role: "student",
-    classIds: ["c1"],
-  }
-];
+import { classService } from '@/services/classService';
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export const ClassManagement: React.FC = () => {
   const { toast } = useToast();
-  const [classes, setClasses] = useState<Class[]>(mockClasses);
-  const [students] = useState<Student[]>(mockStudents);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newClassName, setNewClassName] = useState("");
@@ -123,6 +71,40 @@ export const ClassManagement: React.FC = () => {
   // Track which accordion items are open individually
   const [openAccordionItems, setOpenAccordionItems] = useState<Record<string, boolean>>({});
 
+  useEffect(() => {
+    fetchClasses();
+  }, []);
+
+  const fetchClasses = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await classService.getClasses();
+      setClasses(data);
+      
+      // Get all unique student IDs from all classes
+      const allStudentIds = data.reduce((ids: string[], classItem) => {
+        return [...ids, ...(classItem.studentIds || [])];
+      }, []);
+      
+      // Fetch student data for all student IDs
+      if (allStudentIds.length > 0) {
+        const studentData = await classService.getStudentsByIds(allStudentIds);
+        setStudents(studentData);
+      }
+    } catch (err) {
+      console.error('Error fetching classes:', err);
+      setError('Failed to fetch classes');
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch classes. Please try again later.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleAccordion = (accordionId: string) => {
     setOpenAccordionItems(prev => ({
       ...prev,
@@ -135,132 +117,76 @@ export const ClassManagement: React.FC = () => {
     c.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleCreateClass = () => {
-    if (!newClassName.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Class name is required",
+  const handleCreateClass = async (name: string, description?: string) => {
+    try {
+      const newClass = await classService.createClass({ 
+        name, 
+        description,
+        studentIds: selectedStudents 
       });
-      return;
-    }
-    
-    const newClass: Class = {
-      id: `c${Date.now()}`,
-      name: newClassName,
-      description: newClassDescription,
-      teacherId: "t1",
-      studentIds: selectedStudents
-    };
-    
-    setClasses([...classes, newClass]);
-    setNewClassName("");
-    setNewClassDescription("");
-    setSelectedStudents([]);
-    setShowCreateDialog(false);
-    
-    toast({
-      title: "Class Created",
-      description: `${newClassName} has been created successfully.`,
-    });
-  };
-
-  const handleDeleteClass = (classId: string) => {
-    setClasses(classes.filter(c => c.id !== classId));
-    
-    toast({
-      title: "Class Deleted",
-      description: "The class has been deleted successfully.",
-    });
-  };
-
-  const handleAddStudent = () => {
-    if ((!selectedClassId && !isAddingStudentsToNewClass) || !studentEmail.trim()) {
-      return;
-    }
-    
-    const student = students.find(s => s.email === studentEmail);
-    
-    if (!student) {
+      setClasses([...classes, newClass]);
+      setSelectedStudents([]);
+      setShowCreateDialog(false);
       toast({
-        variant: "destructive",
-        title: "Student Not Found",
-        description: `No student found with email ${studentEmail}`,
+        title: 'Success',
+        description: 'Class created successfully',
       });
-      return;
-    }
-    
-    if (isAddingStudentsToNewClass) {
-      if (selectedStudents.includes(student.id)) {
-        toast({
-          variant: "destructive",
-          title: "Student Already Added",
-          description: `${student.name} is already in this class`,
-        });
-        return;
-      }
-      
-      setSelectedStudents([...selectedStudents, student.id]);
-      
+    } catch (err) {
       toast({
-        title: "Student Added",
-        description: `${student.name} will be added to the class when created`,
+        title: 'Error',
+        description: 'Failed to create class',
+        variant: 'destructive',
       });
-      setStudentEmail("");
-      return;
-    }
-    
-    const classIndex = classes.findIndex(c => c.id === selectedClassId);
-    
-    if (classes[classIndex].studentIds.includes(student.id)) {
-      toast({
-        variant: "destructive",
-        title: "Student Already Added",
-        description: `${student.name} is already in this class`,
-      });
-      return;
-    }
-    
-    const updatedClasses = [...classes];
-    updatedClasses[classIndex].studentIds.push(student.id);
-    setClasses(updatedClasses);
-    
-    toast({
-      title: "Student Added",
-      description: `${student.name} has been added to the class`,
-    });
-    
-    setStudentEmail("");
-    setShowAddStudentDialog(false);
-  };
-
-  const handleRemoveStudent = (classId: string, studentId: string) => {
-    const classIndex = classes.findIndex(c => c.id === classId);
-    if (classIndex !== -1) {
-      const updatedClasses = [...classes];
-      updatedClasses[classIndex].studentIds = updatedClasses[classIndex].studentIds.filter(
-        id => id !== studentId
-      );
-      setClasses(updatedClasses);
-      
-      const student = students.find(s => s.id === studentId);
-      if (student) {
-        toast({
-          title: "Student Removed",
-          description: `${student.name} has been removed from the class`,
-        });
-      }
     }
   };
 
-  const handleRemoveSelectedStudent = (studentId: string) => {
-    setSelectedStudents(selectedStudents.filter(id => id !== studentId));
-    
-    const student = students.find(s => s.id === studentId);
-    if (student) {
+  const handleDeleteClass = async (id: string) => {
+    try {
+      await classService.deleteClass(id);
+      setClasses(classes.filter(c => c.id !== id));
       toast({
-        title: "Student Removed",
-        description: `${student.name} has been removed from the class`,
+        title: 'Success',
+        description: 'Class deleted successfully',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete class',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAddStudent = async (classId: string, email: string) => {
+    try {
+      const updatedClass = await classService.addStudentToClass(classId, email);
+      setClasses(classes.map(c => c.id === classId ? updatedClass : c));
+      toast({
+        title: 'Success',
+        description: 'Student added successfully',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add student',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRemoveStudent = async (classId: string, studentId: string) => {
+    try {
+      const updatedClass = await classService.removeStudentFromClass(classId, studentId);
+      setClasses(classes.map(c => c.id === classId ? updatedClass : c));
+      toast({
+        title: 'Success',
+        description: 'Student removed successfully',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to remove student',
+        variant: 'destructive',
       });
     }
   };
@@ -270,20 +196,21 @@ export const ClassManagement: React.FC = () => {
     setShowEditClassDialog(true);
   };
 
-  const handleUpdateClass = () => {
-    if (!editingClass) return;
-    
-    const updatedClasses = classes.map(c => 
-      c.id === editingClass.id ? editingClass : c
-    );
-    
-    setClasses(updatedClasses);
-    setShowEditClassDialog(false);
-    
-    toast({
-      title: "Class Updated",
-      description: `${editingClass.name} has been updated successfully.`,
-    });
+  const handleUpdateClass = async (id: string, name: string, description?: string) => {
+    try {
+      const updatedClass = await classService.updateClass(id, { name, description });
+      setClasses(classes.map(c => c.id === id ? updatedClass : c));
+      toast({
+        title: 'Success',
+        description: 'Class updated successfully',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update class',
+        variant: 'destructive',
+      });
+    }
   };
 
   const getClassStats = (classId: string) => {
@@ -292,15 +219,38 @@ export const ClassManagement: React.FC = () => {
     
     return {
       studentCount: classItem.studentIds.length,
-      examCount: 2
+      examCount: classItem.examCount,
     };
   };
 
-  const handleAddStudentsToNewClass = () => {
-    setIsAddingStudentsToNewClass(true);
-    setSelectedClassId(null);
-    setShowAddStudentDialog(true);
-  };
+  // const handleAddStudentsToNewClass = () => {
+  //   setIsAddingStudentsToNewClass(true);
+  //   setSelectedClassId(null);
+  //   setShowAddStudentDialog(true);
+  // };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-lg font-medium">Loading classes...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-destructive" />
+          <p className="text-lg font-medium text-destructive">{error}</p>
+          <Button onClick={fetchClasses}>Try Again</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -493,7 +443,7 @@ export const ClassManagement: React.FC = () => {
               />
             </div>
 
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">
                   Students
@@ -517,7 +467,7 @@ export const ClassManagement: React.FC = () => {
                           {student?.name}
                           <X 
                             className="h-3 w-3 cursor-pointer" 
-                            onClick={() => handleRemoveSelectedStudent(studentId)} 
+                            onClick={() => handleRemoveStudent(selectedClassId || "", studentId)} 
                           />
                         </Badge>
                       );
@@ -529,7 +479,7 @@ export const ClassManagement: React.FC = () => {
                   </div>
                 )}
               </div>
-            </div>
+            </div> */}
           </div>
           
           <DialogFooter>
@@ -539,7 +489,7 @@ export const ClassManagement: React.FC = () => {
             }}>
               Cancel
             </Button>
-            <Button onClick={handleCreateClass}>Create Class</Button>
+            <Button onClick={() => handleCreateClass(newClassName, newClassDescription)}>Create Class</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -579,7 +529,7 @@ export const ClassManagement: React.FC = () => {
             <Button variant="outline" onClick={() => setShowAddStudentDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddStudent}>Add Student</Button>
+            <Button onClick={() => handleAddStudent(selectedClassId || "", studentEmail)}>Add Student</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -658,7 +608,7 @@ export const ClassManagement: React.FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleUpdateClass}>Save Changes</Button>
+            <Button onClick={() => handleUpdateClass(editingClass?.id || "", editingClass?.name || "", editingClass?.description)}>Save Changes</Button>
             <Button variant="outline" onClick={() => setShowEditClassDialog(false)}>
               Cancel
             </Button>

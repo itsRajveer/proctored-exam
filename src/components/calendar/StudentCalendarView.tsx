@@ -1,47 +1,8 @@
-
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { format, addDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import EventItem, { EventItemProps } from "./EventItem";
-
-// Mock data for student events
-const studentEvents: EventItemProps[] = [
-  {
-    id: "e1",
-    title: "Mathematics Exam",
-    description: "Mid-term algebra examination",
-    startTime: "10:00",
-    endTime: "12:00",
-    location: "Room B201",
-    eventType: "exam",
-  },
-  {
-    id: "e2",
-    title: "Literature Essay Due",
-    description: "Submit your analysis of Shakespeare's Hamlet",
-    startTime: "23:59",
-    endTime: "23:59",
-    eventType: "assignment",
-  },
-  {
-    id: "e3",
-    title: "Physics Class",
-    startTime: "14:00",
-    endTime: "15:30",
-    location: "Science Building, Room 305",
-    eventType: "class",
-    participants: 25,
-  },
-  {
-    id: "e4",
-    title: "Study Group Meeting",
-    description: "Biology final exam preparation",
-    startTime: "16:00",
-    endTime: "18:00",
-    location: "Library, Study Room 3",
-    eventType: "meeting",
-    participants: 5,
-  },
-];
+import { calendarService, CalendarEvent } from "@/services/calendarService";
+import { useToast } from "@/components/ui/use-toast";
 
 interface StudentCalendarViewProps {
   date: Date;
@@ -55,21 +16,53 @@ interface StudentCalendarViewProps {
 }
 
 const StudentCalendarView = ({ date, view, filters }: StudentCalendarViewProps) => {
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const data = await calendarService.getStudentEvents();
+        setEvents(data);
+      } catch (err) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load calendar events. Please try again later.",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [toast]);
+
   // Filter events based on selected filters
-  const filteredEvents = studentEvents.filter((event) => {
+  const filteredEvents = events.filter((event) => {
     if (event.eventType === "exam" && !filters.exams) return false;
-    if (event.eventType === "class" && !filters.classes) return false;
-    if (event.eventType === "assignment" && !filters.assignments) return false;
-    if (event.eventType === "meeting" && !filters.meetings) return false;
     return true;
   });
 
   // Function to get events for a specific date
   const getEventsForDate = (date: Date) => {
-    // In a real app, we would filter by date properly
-    // This is mock data that always shows our sample events on the current selected date
-    return isSameDay(date, new Date()) ? filteredEvents : [];
+    return filteredEvents.filter(event => {
+      const eventDate = new Date(event.startTime);
+      return isSameDay(eventDate, date);
+    });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4">Loading calendar events...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Render calendar based on selected view
   const renderCalendarView = () => {
@@ -124,12 +117,7 @@ const StudentCalendarView = ({ date, view, filters }: StudentCalendarViewProps) 
                         {dayEvents.map((event) => (
                           <div 
                             key={event.id} 
-                            className={`text-xs p-1 rounded-sm truncate ${
-                              event.eventType === "exam" ? "bg-red-100 text-red-800" :
-                              event.eventType === "class" ? "bg-blue-100 text-blue-800" :
-                              event.eventType === "assignment" ? "bg-amber-100 text-amber-800" :
-                              "bg-purple-100 text-purple-800"
-                            }`}
+                            className="text-xs p-1 rounded-sm truncate bg-red-100 text-red-800"
                           >
                             {event.title}
                           </div>
@@ -177,12 +165,7 @@ const StudentCalendarView = ({ date, view, filters }: StudentCalendarViewProps) 
                         {dayEvents.slice(0, 2).map((event) => (
                           <div 
                             key={event.id} 
-                            className={`text-xs p-1 rounded-sm truncate ${
-                              event.eventType === "exam" ? "bg-red-100 text-red-800" :
-                              event.eventType === "class" ? "bg-blue-100 text-blue-800" :
-                              event.eventType === "assignment" ? "bg-amber-100 text-amber-800" :
-                              "bg-purple-100 text-purple-800"
-                            }`}
+                            className="text-xs p-1 rounded-sm truncate bg-red-100 text-red-800"
                           >
                             {event.title}
                           </div>

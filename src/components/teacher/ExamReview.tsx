@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
@@ -24,18 +23,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Exam, Question } from "@/types";
+import { Exam, Question, ExamSubmission } from "@/types";
+import { examSubmissionService } from "@/services/examSubmissionService";
 
-// Define a type for student grades to match what's expected in mockStudentSubmissions
-type StudentGrades = {
-  q1: number;
-  q2: number;
-  q3: number;
-  q4: number;
-  q5: number;
-};
-
-// Mock exam data (same as in ExamView but with student answers)
 const mockExam: Exam = {
   id: "e1",
   title: "Mid-term Mathematics",
@@ -84,78 +74,11 @@ const mockExam: Exam = {
   duration: 90,
   startTime: new Date().toISOString(),
   endTime: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
-  isActive: true,
+  studentIds: [],
+  status: 'draft',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
 };
-
-// Mock student submissions
-const mockStudentSubmissions = [
-  {
-    studentId: "s1",
-    studentName: "John Doe",
-    examId: "e1",
-    answers: {
-      q1: 1, // Correct (3.14)
-      q2: 2, // Incorrect
-      q3: "The Pythagorean theorem states that in a right triangle, the square of the hypotenuse equals the sum of squares of the other two sides.",
-      q4: true, // Correct
-      q5: 3, // Incorrect
-    },
-    feedback: "",
-    grades: {
-      q1: 5,
-      q2: 0,
-      q3: 8,
-      q4: 5,
-      q5: 0,
-    } as StudentGrades,
-    status: "submitted",
-    submittedAt: "2025-04-10T14:30:00Z",
-  },
-  {
-    studentId: "s2",
-    studentName: "Jane Smith",
-    examId: "e1",
-    answers: {
-      q1: 1, // Correct
-      q2: 0, // Correct
-      q3: "The Pythagorean theorem relates the lengths of the sides of a right triangle. It states that a² + b² = c², where c is the hypotenuse.",
-      q4: true, // Correct
-      q5: 1, // Correct
-    },
-    feedback: "",
-    grades: {
-      q1: 5,
-      q2: 5,
-      q3: 10,
-      q4: 5,
-      q5: 5,
-    } as StudentGrades,
-    status: "submitted",
-    submittedAt: "2025-04-10T15:15:00Z",
-  },
-  {
-    studentId: "s3",
-    studentName: "Michael Brown",
-    examId: "e1",
-    answers: {
-      q1: 2, // Incorrect
-      q2: 0, // Correct
-      q3: "It's about triangles and has something to do with squares.",
-      q4: false, // Incorrect
-      q5: 3, // Incorrect
-    },
-    feedback: "",
-    grades: {
-      q1: 0,
-      q2: 5,
-      q3: 3,
-      q4: 0,
-      q5: 0,
-    } as StudentGrades,
-    status: "submitted",
-    submittedAt: "2025-04-10T14:45:00Z",
-  },
-];
 
 export const ExamReview: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -164,41 +87,53 @@ export const ExamReview: React.FC = () => {
   
   const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
-  const [students, setStudents] = useState<typeof mockStudentSubmissions>([]);
-  const [currentStudentIndex, setCurrentStudentIndex] = useState(0);
+  const [submissions, setSubmissions] = useState<ExamSubmission[]>([]);
+  const [currentSubmissionIndex, setCurrentSubmissionIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [currentGrades, setCurrentGrades] = useState<StudentGrades>({
-    q1: 0,
-    q2: 0,
-    q3: 0,
-    q4: 0,
-    q5: 0
-  });
+  const [currentGrades, setCurrentGrades] = useState<Record<string, number>>({});
   const [feedback, setFeedback] = useState("");
 
-  // Load exam data
+  // Load exam data and submissions
   useEffect(() => {
-    // Simulated API call
-    setTimeout(() => {
-      setExam(mockExam);
-      setStudents(mockStudentSubmissions);
-      
-      if (mockStudentSubmissions.length > 0) {
-        setCurrentGrades(mockStudentSubmissions[0].grades);
-        setFeedback(mockStudentSubmissions[0].feedback);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await examSubmissionService.getExamSubmissionForReview(id!);
+        
+        if (response.exam) {
+          setExam(response.exam);
+          setSubmissions([response.submission]);
+          
+          if (response.submission) {
+            setCurrentGrades(response.submission.grades || {});
+            setFeedback(response.submission.feedback || "");
+          }
+        } else {
+          throw new Error('Invalid exam data received');
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching exam:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load exam data",
+        });
+        setLoading(false);
       }
-      
-      setLoading(false);
-    }, 1000);
-  }, [id]);
+    };
 
-  // Update grades when changing student
+    fetchData();
+  }, [id, toast]);
+
+  // Update grades when changing submission
   useEffect(() => {
-    if (students.length > 0 && currentStudentIndex < students.length) {
-      setCurrentGrades(students[currentStudentIndex].grades);
-      setFeedback(students[currentStudentIndex].feedback);
+    if (submissions.length > 0 && currentSubmissionIndex < submissions.length) {
+      setCurrentGrades(submissions[currentSubmissionIndex].grades || {});
+      setFeedback(submissions[currentSubmissionIndex].feedback || "");
     }
-  }, [currentStudentIndex, students]);
+  }, [currentSubmissionIndex, submissions]);
 
   const handleGradeChange = (questionId: string, points: number) => {
     setCurrentGrades(prev => ({
@@ -207,34 +142,46 @@ export const ExamReview: React.FC = () => {
     }));
   };
 
-  const saveGrades = () => {
-    const updatedStudents = [...students];
-    updatedStudents[currentStudentIndex] = {
-      ...updatedStudents[currentStudentIndex],
-      grades: currentGrades,
-      feedback
-    };
-    
-    setStudents(updatedStudents);
-    
-    toast({
-      title: "Grades Saved",
-      description: `Grades saved for ${students[currentStudentIndex].studentName}.`,
-    });
+  const saveGrades = async () => {
+    try {
+      const updatedSubmission = await examSubmissionService.saveExamGrades(
+        id!,
+        currentGrades,
+        feedback
+      );
+      
+      const updatedSubmissions = [...submissions];
+      updatedSubmissions[currentSubmissionIndex] = updatedSubmission;
+      setSubmissions(updatedSubmissions);
+      
+      toast({
+        title: "Grades Saved",
+        description: `Grades and feedback saved for ${updatedSubmission.studentName}.`,
+      });
+      
+      // Navigate back to exams page after successful save
+      navigate("/dashboard/exams");
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save grades and feedback",
+      });
+    }
   };
 
-  const handleNextStudent = () => {
+  const handleNextSubmission = () => {
     saveGrades();
-    if (currentStudentIndex < students.length - 1) {
-      setCurrentStudentIndex(currentStudentIndex + 1);
+    if (currentSubmissionIndex < submissions.length - 1) {
+      setCurrentSubmissionIndex(currentSubmissionIndex + 1);
       setCurrentQuestionIndex(0);
     }
   };
 
-  const handlePreviousStudent = () => {
+  const handlePreviousSubmission = () => {
     saveGrades();
-    if (currentStudentIndex > 0) {
-      setCurrentStudentIndex(currentStudentIndex - 1);
+    if (currentSubmissionIndex > 0) {
+      setCurrentSubmissionIndex(currentSubmissionIndex - 1);
       setCurrentQuestionIndex(0);
     }
   };
@@ -278,7 +225,7 @@ export const ExamReview: React.FC = () => {
     );
   }
 
-  if (!exam || students.length === 0) {
+  if (!exam || submissions.length === 0) {
     return (
       <div className="text-center p-8">
         <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
@@ -289,9 +236,9 @@ export const ExamReview: React.FC = () => {
     );
   }
 
-  const currentStudent = students[currentStudentIndex];
+  const currentSubmission = submissions[currentSubmissionIndex];
   const currentQuestion = exam.questions[currentQuestionIndex];
-  const studentAnswer = currentStudent.answers[currentQuestion.id];
+  const studentAnswer = currentSubmission.answers[currentQuestion.id];
 
   return (
     <div className="space-y-6">
@@ -312,52 +259,12 @@ export const ExamReview: React.FC = () => {
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <User className="h-5 w-5 text-muted-foreground" />
-          <Select
-            value={currentStudentIndex.toString()}
-            onValueChange={(value) => {
-              saveGrades();
-              setCurrentStudentIndex(parseInt(value));
-              setCurrentQuestionIndex(0);
-            }}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue>{currentStudent.studentName}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {students.map((student, index) => (
-                <SelectItem key={student.studentId} value={index.toString()}>
-                  {student.studentName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handlePreviousStudent}
-              disabled={currentStudentIndex === 0}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm">
-              {currentStudentIndex + 1} of {students.length}
-            </span>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleNextStudent}
-              disabled={currentStudentIndex === students.length - 1}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          <span className="font-medium">{currentSubmission.studentName}</span>
         </div>
 
         <div className="text-right">
           <div className="text-sm text-muted-foreground">
-            Submitted on {new Date(currentStudent.submittedAt).toLocaleDateString()}
+            Submitted on {new Date(currentSubmission.submittedAt).toLocaleDateString()}
           </div>
           <div className="text-lg font-medium">
             Score: {getTotalScore()} / {getMaxScore()} ({getScorePercentage()}%)
@@ -365,7 +272,7 @@ export const ExamReview: React.FC = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="questions">
+      <Tabs defaultValue="questions" className="space-y-6">
         <TabsList>
           <TabsTrigger value="questions">Questions</TabsTrigger>
           <TabsTrigger value="summary">Summary</TabsTrigger>
@@ -537,7 +444,7 @@ export const ExamReview: React.FC = () => {
           </div>
         </TabsContent>
         
-        <TabsContent value="summary" className="space-y-6 mt-6">
+        <TabsContent value="summary">
           <Card>
             <CardHeader>
               <CardTitle>Exam Summary</CardTitle>
@@ -556,30 +463,29 @@ export const ExamReview: React.FC = () => {
               
               <div className="space-y-2">
                 <h3 className="font-medium">Questions Overview</h3>
-                <div className="border rounded-md divide-y">
-                  {exam.questions.map((question, index) => (
-                    <div 
-                      key={question.id} 
-                      className="p-4 flex justify-between items-center hover:bg-muted/50 cursor-pointer"
-                      onClick={() => setCurrentQuestionIndex(index)}
-                    >
-                      <div>
-                        <div className="font-medium">Question {index + 1}</div>
-                        <div className="text-sm text-muted-foreground truncate max-w-[300px]">
-                          {question.text}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`font-medium ${
-                          (currentGrades[question.id] || 0) === question.points ? 'text-green-600' : 
-                          (currentGrades[question.id] || 0) === 0 ? 'text-red-600' : 'text-amber-600'
-                        }`}>
-                          {currentGrades[question.id] || 0} / {question.points}
-                        </div>
+                
+                {exam.questions.map((question, index) => (
+                  <div 
+                    key={question.id} 
+                    className="p-4 flex justify-between items-center hover:bg-muted/50 cursor-pointer"
+                    onClick={() => setCurrentQuestionIndex(index)}
+                  >
+                    <div>
+                      <div className="font-medium">Question {index + 1}</div>
+                      <div className="text-sm text-muted-foreground truncate max-w-[300px]">
+                        {question.text}
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-right">
+                      <div className={`font-medium ${
+                        (currentGrades[question.id] || 0) === question.points ? 'text-green-600' : 
+                        (currentGrades[question.id] || 0) === 0 ? 'text-red-600' : 'text-amber-600'
+                      }`}>
+                        {currentGrades[question.id] || 0} / {question.points}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
               
               <div className="space-y-2">

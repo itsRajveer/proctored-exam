@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, AuthContextType } from "../types";
 import { initializeApp } from "firebase/app";
-import { getAuth, signInWithCustomToken, signOut } from "firebase/auth";
+import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged } from "firebase/auth";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -37,12 +37,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for saved user in localStorage
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    // Set up Firebase auth state listener
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Get the ID token
+        const token = await firebaseUser.getIdToken();
+        
+        // Get user data from localStorage or create new user data
+        const savedUser = localStorage.getItem("user");
+        let userData: User;
+        
+        if (savedUser) {
+          userData = JSON.parse(savedUser);
+        } else {
+          userData = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            email: firebaseUser.email || '',
+            role: 'teacher', // Default role, will be updated by the backend
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User')}`,
+          };
+          localStorage.setItem("user", JSON.stringify(userData));
+        }
+        
+        setUser(userData);
+      } else {
+        setUser(null);
+        localStorage.removeItem("user");
+      }
+      setLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -100,6 +127,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem("user");
     } catch (error) {
       console.error("Logout failed:", error);
+      throw error;
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -17,6 +16,7 @@ import {
   Trash2,
   Users,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,97 +56,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
-import { Class, Question, Exam } from "@/types";
-
-const mockClasses: Class[] = [
-  {
-    id: "c1",
-    name: "Mathematics 101",
-    description: "Introduction to algebra and calculus",
-    teacherId: "t1",
-    studentIds: ["s1", "s2", "s3", "s4", "s5"]
-  },
-  {
-    id: "c2",
-    name: "Physics 101",
-    description: "Introduction to mechanics and thermodynamics",
-    teacherId: "t1",
-    studentIds: ["s1", "s2", "s3"]
-  }
-];
-
-const mockStudents = [
-  { id: "s1", name: "John Doe", email: "john.doe@example.com" },
-  { id: "s2", name: "Jane Smith", email: "jane.smith@example.com" },
-  { id: "s3", name: "Michael Brown", email: "michael.brown@example.com" },
-  { id: "s4", name: "Emily Johnson", email: "emily.johnson@example.com" },
-  { id: "s5", name: "David Wilson", email: "david.wilson@example.com" },
-];
-
-// Mock exams for the ExamList tab
-const mockExams: Exam[] = [
-  {
-    id: "e1",
-    title: "Mid-term Mathematics",
-    description: "Covers chapters 1-5 of the textbook",
-    classId: "c1",
-    teacherId: "t1",
-    questions: [
-      // Using simplified questions for the exam list view
-      {
-        id: "q1",
-        text: "What is the value of π (pi) to two decimal places?",
-        type: "multiple-choice",
-        options: ["3.10", "3.14", "3.16", "3.18"],
-        correctAnswer: 1,
-        points: 5,
-      },
-      {
-        id: "q2",
-        text: "Solve the equation: 2x + 5 = 15",
-        type: "multiple-choice",
-        options: ["x = 5", "x = 7", "x = 10", "x = 15"],
-        correctAnswer: 0,
-        points: 5,
-      },
-    ],
-    duration: 90,
-    startTime: new Date().toISOString(),
-    endTime: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
-    isActive: true,
-  },
-  {
-    id: "e2",
-    title: "Physics Quiz",
-    description: "Basic concepts of mechanics",
-    classId: "c2",
-    teacherId: "t1",
-    questions: [],
-    duration: 45,
-    startTime: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(), // tomorrow
-    endTime: new Date(Date.now() + 1000 * 60 * 60 * 24 + 1000 * 60 * 45).toISOString(),
-    isActive: false,
-  }
-];
-
-// Component for displaying submission status
-const SubmissionStatus = ({ count, total }: { count: number; total: number }) => {
-  const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-  
-  return (
-    <div className="flex items-center space-x-2">
-      <div className="w-full bg-gray-200 rounded-full h-2.5">
-        <div 
-          className="bg-primary h-2.5 rounded-full" 
-          style={{ width: `${percentage}%` }}
-        ></div>
-      </div>
-      <span className="text-sm font-medium">
-        {count}/{total}
-      </span>
-    </div>
-  );
-};
+import { Class, Question, Exam, Student } from "@/types";
+import { classService } from "@/services/classService";
+import { examService } from "@/services/examService";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export const ExamCreator: React.FC = () => {
   const navigate = useNavigate();
@@ -178,7 +91,12 @@ export const ExamCreator: React.FC = () => {
   
   // State for exam list and search
   const [searchTerm, setSearchTerm] = useState("");
-  const [exams, setExams] = useState<typeof mockExams>(mockExams);
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedClass, setSelectedClass] = useState<Class | null>(null);
+  const [examDuration, setExamDuration] = useState(60);
 
   // Setup form for better form handling
   const examForm = useForm({
@@ -190,25 +108,68 @@ export const ExamCreator: React.FC = () => {
     }
   });
 
+  // Fetch classes and exams on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [classesData, examsData] = await Promise.all([
+          classService.getClasses(),
+          examService.getTeacherExams()
+        ]);
+        setClasses(classesData);
+        setExams(examsData);
+        setError(null);
+      } catch (err) {
+        setError("Failed to load data. Please try again later.");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load data. Please try again later.",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [toast]);
+
   useEffect(() => {
     if (classId) {
-      const selectedClass = mockClasses.find(c => c.id === classId);
+      const selectedClass = classes.find(c => c.id === classId);
       if (selectedClass) {
-        const students = selectedClass.studentIds.map(id => 
-          mockStudents.find(s => s.id === id)
-        ).filter(Boolean).map(s => ({ id: s!.id, name: s!.name }));
-        
-        setClassStudents(students);
-        setSelectedStudents(students.map(s => s.id));
+        setSelectedClass(selectedClass);
+        // Get student data for the selected class
+        const fetchStudents = async () => {
+          try {
+            const students = await classService.getStudentsByIds(selectedClass.studentIds);
+            setClassStudents(students.map(student => ({
+              id: student.id,
+              name: student.name
+            })));
+            setSelectedStudents(students.map(student => student.id));
+          } catch (error) {
+            console.error('Error fetching students:', error);
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: "Failed to load students for this class",
+            });
+          }
+        };
+        fetchStudents();
       } else {
+        setSelectedClass(null);
         setClassStudents([]);
         setSelectedStudents([]);
       }
     } else {
+      setSelectedClass(null);
       setClassStudents([]);
       setSelectedStudents([]);
     }
-  }, [classId]);
+  }, [classId, classes, toast]);
 
   // Filter exams based on search term
   const filteredExams = exams.filter(exam => 
@@ -300,88 +261,80 @@ export const ExamCreator: React.FC = () => {
     }
   };
 
-  const saveExam = () => {
-    if (!examTitle) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Exam title is required.",
-      });
-      return;
-    }
-    
+  const saveExam = async () => {
     if (!classId) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Please select a class for the exam.",
+        description: "Please select a class",
       });
       return;
     }
-    
-    if (!startDate || !endDate) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Start and end dates are required.",
-      });
-      return;
-    }
-    
+
     if (questions.length === 0) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Please add at least one question to the exam.",
+        description: "Please add at least one question",
       });
       return;
     }
-    
-    if (selectedStudents.length === 0) {
+
+    try {
+      // Combine date and time for start and end times
+      const combineDateTime = (date: Date | undefined, time: string) => {
+        if (!date) return new Date().toISOString();
+        
+        const [hours, minutes] = time.split(':').map(Number);
+        const newDate = new Date(date);
+        newDate.setHours(hours, minutes, 0, 0);
+        return newDate.toISOString();
+      };
+
+      const newExam = {
+        title: examTitle,
+        description: examDescription,
+        duration: parseInt(duration),
+        classId: classId,
+        startTime: combineDateTime(startDate, startTime),
+        endTime: combineDateTime(endDate, endTime),
+        questions: questions.map((q, index) => ({
+          ...q,
+          order: index + 1
+        })),
+        studentIds: selectedStudents
+      };
+
+      await examService.createExam(newExam);
+      toast({
+        title: "Success",
+        description: "Exam created successfully"
+      });
+      
+      // Reset form
+      setExamTitle('');
+      setExamDescription('');
+      setDuration('60');
+      setQuestions([]);
+      setClassId('');
+      setSelectedClass(null);
+      setClassStudents([]);
+      setSelectedStudents([]);
+      setStartDate(undefined);
+      setStartTime('09:00');
+      setEndDate(undefined);
+      setEndTime('10:00');
+      setActiveTab('list');
+
+      window.location.reload();
+    } catch (error) {
+      console.error('Error creating exam:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Please select at least one student for the exam.",
+        description: "Failed to create exam"
       });
-      return;
     }
-    
-    // Create a new exam
-    const newExam: Exam = {
-      id: `e${Date.now()}`,
-      title: examTitle,
-      description: examDescription,
-      classId: classId,
-      teacherId: "t1", // Using mock teacher ID
-      questions: questions,
-      duration: parseInt(duration),
-      startTime: startDate!.toISOString(),
-      endTime: endDate!.toISOString(),
-      isActive: true,
-    };
-    
-    // Add the new exam to the list
-    setExams([...exams, newExam]);
-    
-    // Reset form
-    setExamTitle("");
-    setExamDescription("");
-    setClassId("");
-    setDuration("60");
-    setStartDate(undefined);
-    setStartTime("09:00");
-    setEndDate(undefined);
-    setEndTime("10:00");
-    setQuestions([]);
-    setSelectedStudents([]);
-    
-    toast({
-      title: "Exam Created",
-      description: `The exam has been created successfully for ${selectedStudents.length} students.`,
-    });
-    
-    // Switch to exam list tab
-    setActiveTab("list");
   };
 
   const toggleAllStudents = () => {
@@ -403,6 +356,28 @@ export const ExamCreator: React.FC = () => {
   const viewExamResults = (examId: string) => {
     navigate(`/dashboard/exam/${examId}/review`);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4">Loading data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-8">
+        <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Error Loading Data</h2>
+        <p className="mb-4">{error}</p>
+        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -436,10 +411,8 @@ export const ExamCreator: React.FC = () => {
           {filteredExams.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredExams.map(exam => {
-                const classData = mockClasses.find(c => c.id === exam.classId);
+                const classData = classes.find(c => c.id === exam.classId);
                 const totalStudents = classData?.studentIds.length || 0;
-                // For demo purposes: random submission counts
-                const submissionCount = Math.floor(Math.random() * (totalStudents + 1));
                 
                 const now = new Date();
                 const startTime = new Date(exam.startTime);
@@ -487,10 +460,8 @@ export const ExamCreator: React.FC = () => {
                           <span>{exam.questions.length}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Submissions:</span>
-                          <span className="flex items-center">
-                            <SubmissionStatus count={submissionCount} total={totalStudents} />
-                          </span>
+                          <span className="text-muted-foreground">Students:</span>
+                          <span>{exam.studentIds.length}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-muted-foreground">Start:</span>
@@ -503,7 +474,6 @@ export const ExamCreator: React.FC = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          // Clone the exam for reuse
                           setExamTitle(exam.title);
                           setExamDescription(exam.description);
                           setClassId(exam.classId);
@@ -591,7 +561,7 @@ export const ExamCreator: React.FC = () => {
                         <SelectValue placeholder="Select a class" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockClasses.map((classItem) => (
+                        {classes.map((classItem) => (
                           <SelectItem key={classItem.id} value={classItem.id}>
                             {classItem.name} ({classItem.studentIds.length} students)
                           </SelectItem>
