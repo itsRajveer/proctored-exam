@@ -47,29 +47,147 @@ const StudentCard: React.FC<StudentCardProps> = ({ student, onView, isExpanded }
         setIsLoading(true);
         setError(null);
 
-        // Subscribe to stream updates
-        const handleStream = (newStream: MediaStream) => {
-          console.log('Received new stream:', newStream);
-          setStream(newStream);
-          if (videoRef.current) {
-            videoRef.current.srcObject = newStream;
-            videoRef.current.play().catch(error => {
-              console.error('Error playing video:', error);
-              setError('Failed to play video stream');
-            });
+        console.log('Setting up stream for student:', student.id);
+
+        // Get the student's stream URL from the server
+        const response = await fetch(`http://localhost:5002/api/monitoring/${student.id}/stream`);
+        const data = await response.json();
+        
+        console.log('Stream response:', data);
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to get stream URL');
+        }
+
+        const streamUrl = `http://localhost:5002${data.streamUrl}`;
+        console.log('Full stream URL:', streamUrl);
+        
+        if (videoRef.current) {
+          console.log('Setting up video element');
+          
+          // Reset video element
+          videoRef.current.pause();
+          videoRef.current.removeAttribute('src');
+          videoRef.current.load();
+          
+          // Set up video element with proper settings
+          videoRef.current.src = streamUrl;
+          videoRef.current.crossOrigin = 'anonymous';
+          videoRef.current.playsInline = true;
+          videoRef.current.autoplay = true;
+          videoRef.current.muted = true;
+          videoRef.current.controls = true;
+          
+          // Add event listeners for better error handling and debugging
+          videoRef.current.onerror = (e: Event) => {
+            const error = (e.target as HTMLVideoElement).error;
+            console.error('Video error:', error?.code, error?.message);
+            
+            // Try to recover from the error by reloading the stream
+            if (videoRef.current) {
+              console.log('Attempting to recover from error...');
+              videoRef.current.load();
+              
+              // Add a small delay before trying to play again
+              setTimeout(() => {
+                if (videoRef.current) {
+                  videoRef.current.play().catch(playError => {
+                    console.error('Recovery attempt failed:', playError);
+                    setError('Failed to recover video playback');
+                    setIsLoading(false);
+                  });
+                }
+              }, 1000);
+            }
+          };
+
+          videoRef.current.onloadeddata = () => {
+            console.log('Video data loaded');
+            setError(null);
+            setIsLoading(false);
+          };
+
+          videoRef.current.onplaying = () => {
+            console.log('Video is playing');
+            setError(null);
+            setIsLoading(false);
+          };
+
+          videoRef.current.onstalled = () => {
+            console.log('Video playback stalled');
+            // Don't set error immediately, wait to see if it recovers
+            setTimeout(() => {
+              if (videoRef.current && videoRef.current.readyState < 3) {
+                console.log('Attempting to recover from stall...');
+                videoRef.current.load();
+                videoRef.current.play().catch(error => {
+                  console.error('Failed to recover from stall:', error);
+                });
+              }
+            }, 2000);
+          };
+
+          // Attempt to play the video
+          try {
+            const playPromise = videoRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(error => {
+                console.error('Error playing video:', error);
+                // Only set error if it's not a user interaction required error
+                if (error.name !== 'NotAllowedError') {
+                  setError('Failed to play video stream');
+                  
+                  // Try to recover by reloading after a short delay
+                  setTimeout(() => {
+                    if (videoRef.current) {
+                      videoRef.current.load();
+                      videoRef.current.play().catch(console.error);
+                    }
+                  }, 1000);
+                }
+                setIsLoading(false);
+              });
+            }
+          } catch (error) {
+            console.error('Error playing video:', error);
+            setError('Failed to play video stream');
             setIsLoading(false);
           }
-        };
+        }
 
-        // Store the handler reference
-        streamHandlerRef.current = handleStream;
-        monitoringService.onStream(handleStream);
+        // Set up periodic refresh of the stream
+        const refreshInterval = setInterval(async () => {
+          try {
+            if (!videoRef.current) return;
 
-        // Start monitoring session
-        await monitoringService.startMonitoringSession(student.examId);
-
-        // Setup teacher connection
-        await monitoringService.setupTeacherConnection(student.id);
+            const response = await fetch(`http://localhost:5002/api/monitoring/${student.id}/stream`);
+            const data = await response.json();
+            
+            if (data.success) {
+              const newStreamUrl = `http://localhost:5002${data.streamUrl}`;
+              console.log('Refreshing stream URL:', newStreamUrl);
+              
+              if (videoRef.current.src !== newStreamUrl) {
+                const wasPlaying = !videoRef.current.paused;
+                const currentTime = videoRef.current.currentTime;
+                videoRef.current.src = newStreamUrl;
+                
+                if (wasPlaying) {
+                  const playPromise = videoRef.current.play();
+                  if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                      if (error.name !== 'NotAllowedError') {
+                        console.error('Error playing refreshed video:', error);
+                      }
+                    });
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error refreshing stream:', error);
+          }
+        }, 5000);
 
         // Set a timeout to handle cases where stream is not received
         const timeoutId = setTimeout(() => {
@@ -77,21 +195,22 @@ const StudentCard: React.FC<StudentCardProps> = ({ student, onView, isExpanded }
             setError('Connection timeout - stream not received');
             setIsLoading(false);
           }
-        }, 10000); // 10 second timeout
+        }, 10000);
 
         return () => {
+          console.log('Cleaning up video stream');
           clearTimeout(timeoutId);
-          if (streamHandlerRef.current) {
-            monitoringService.offStream(streamHandlerRef.current);
-            streamHandlerRef.current = null;
-          }
+          clearInterval(refreshInterval);
           if (videoRef.current) {
-            videoRef.current.srcObject = null;
+            videoRef.current.pause();
+            videoRef.current.src = '';
+            videoRef.current.removeAttribute('src');
+            videoRef.current.load();
           }
         };
-      } catch (err) {
-        console.error('Error setting up stream:', err);
-        setError('Failed to setup video stream');
+      } catch (error) {
+        console.error('Error setting up stream:', error);
+        setError(`Failed to setup video stream: ${error.message}`);
         setIsLoading(false);
       }
     };
@@ -101,7 +220,7 @@ const StudentCard: React.FC<StudentCardProps> = ({ student, onView, isExpanded }
     } else {
       setIsLoading(false);
     }
-  }, [isExpanded, student, monitoringService]);
+  }, [isExpanded, student]);
 
   const getStatus = (violations: any[]): StudentStatus => {
     if (!violations) return "offline";
@@ -157,7 +276,9 @@ const StudentCard: React.FC<StudentCardProps> = ({ student, onView, isExpanded }
             autoPlay
             playsInline
             muted
+            controls
             className="w-full h-full object-cover"
+            style={{ backgroundColor: 'black' }}
           />
         </div>
 
@@ -216,10 +337,29 @@ export const StudentMonitor: React.FC = () => {
     const fetchInitialData = async () => {
       try {
         setLoading(true);
-        await Promise.all([
-          fetchOngoingExams(),
-          fetchActiveSessions()
-        ]);
+        
+        // Fetch active sessions from streaming server
+        console.log('Fetching sessions from streaming server...');
+        const response = await fetch('http://localhost:5002/api/monitoring/sessions');
+        const data = await response.json();
+        console.log('Received sessions response:', data);
+        
+        if (data.success) {
+          console.log('Setting active sessions:', data.sessions);
+          setActiveSessions(data.sessions);
+        } else {
+          console.error('Failed to fetch sessions:', data.error);
+          setActiveSessions([]);
+        }
+        
+        const exams = await examService.getTeacherExams();
+        const ongoing = exams.filter(exam => {
+          const now = new Date();
+          const startTime = new Date(exam.startTime);
+          const endTime = new Date(exam.endTime);
+          return now >= startTime && now <= endTime;
+        });
+        setOngoingExams(ongoing);
       } catch (error) {
         console.error('Error fetching initial data:', error);
         toast({
@@ -227,58 +367,32 @@ export const StudentMonitor: React.FC = () => {
           description: "Failed to fetch initial data",
           variant: "destructive",
         });
+        setActiveSessions([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchInitialData();
-  }, []);
 
-  // Separate useEffect for polling active sessions
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!loading) { // Only fetch if not already loading
-        fetchActiveSessions();
+    // Poll for active sessions
+    const interval = setInterval(async () => {
+      try {
+        console.log('Polling for sessions...');
+        const response = await fetch('http://localhost:5002/api/monitoring/sessions');
+        const data = await response.json();
+        console.log('Polling response:', data);
+        if (data.success) {
+          console.log('Updating active sessions:', data.sessions);
+          setActiveSessions(data.sessions);
+        }
+      } catch (error) {
+        console.error('Error polling sessions:', error);
       }
-    }, 10000); // Poll every 10 seconds instead of 5
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [loading]);
-
-  const fetchOngoingExams = async () => {
-    try {
-      const exams = await examService.getTeacherExams();
-      const ongoing = exams.filter(exam => {
-        const now = new Date();
-        const startTime = new Date(exam.startTime);
-        const endTime = new Date(exam.endTime);
-        return now >= startTime && now <= endTime;
-      });
-      setOngoingExams(ongoing);
-    } catch (error) {
-      console.error('Error fetching ongoing exams:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch ongoing exams",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const fetchActiveSessions = async () => {
-    try {
-      const sessions = await monitoringService.getActiveSessions();
-      setActiveSessions(sessions);
-    } catch (error) {
-      console.error('Error fetching active sessions:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch active sessions",
-        variant: "destructive",
-      });
-    }
-  };
+  }, []);
 
   const handleViewStudent = (studentId: string) => {
     setExpandedStudentId(studentId === expandedStudentId ? "" : studentId);

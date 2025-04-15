@@ -10,9 +10,6 @@ export interface MonitoringSession {
   endTime?: string;
   status: 'active' | 'ended';
   violations: any[];
-  streamUrl?: string;
-  peerId?: string;
-  teacherId?: string;
 }
 
 export interface Violation {
@@ -26,6 +23,7 @@ export class MonitoringService {
   private sessions: Map<string, MonitoringSession> = new Map();
   private signalingService: SignalingService;
   private streamHandlers: ((stream: MediaStream) => void)[] = [];
+  private recorders: Map<string, MediaRecorder> = new Map();
 
   private constructor() {
     this.signalingService = SignalingService.getInstance();
@@ -38,7 +36,7 @@ export class MonitoringService {
     return MonitoringService.instance;
   }
 
-  public async startMonitoring(sessionId: string, studentId: string, studentName: string, examId: string): Promise<void> {
+  public async startMonitoringSession(examId: string): Promise<MonitoringSession> {
     try {
       // Check if a session already exists for this exam
       const existingSession = Array.from(this.sessions.values()).find(
@@ -47,57 +45,27 @@ export class MonitoringService {
 
       if (existingSession) {
         console.log('Session already exists for this exam:', existingSession.id);
-        return;
+        return existingSession;
       }
 
-      // Check if signaling server is available
-      const isServerAvailable = await this.checkSignalingServer();
-      if (!isServerAvailable) {
-        throw new Error('Signaling server is not available');
-      }
-
-      // Get user media
-      const localStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false
-      });
-
-      // Add local stream to peer connection
-      localStream.getTracks().forEach(track => {
-        this.signalingService.peerConnection?.addTrack(track, localStream);
-      });
-
-      // Create offer
-      const offer = await this.signalingService.peerConnection.createOffer();
-      await this.signalingService.peerConnection.setLocalDescription(offer);
-
-      // Connect to signaling server
-      await this.signalingService.connect(sessionId);
-      
+      // Create new session
       const session: MonitoringSession = {
-        id: sessionId,
-        studentId,
-        studentName,
+        id: this.generateSessionId(),
         examId,
-        violations: [],
+        studentId: this.getCurrentUserId(),
+        studentName: this.getCurrentUserName(),
         status: 'active',
         startTime: new Date().toISOString(),
-        streamUrl: localStream.id,
-        peerId: this.signalingService.peerConnection.localDescription?.sdp
+        violations: []
       };
 
-      // Create monitoring session in database
-      await api.post(`/api/monitoring/${examId}/start`, {
-        examId: session.examId,
-        streamUrl: session.streamUrl,
-        peerId: session.peerId
-      });
+      // Store session
+      this.sessions.set(session.id, session);
+      console.log('Started monitoring session:', session.id);
 
-      // Store session in local Map
-      this.sessions.set(sessionId, session);
-      console.log(`Started monitoring session ${sessionId} for student ${studentName}`);
+      return session;
     } catch (error) {
-      console.error('Error starting monitoring session:', error);
+      console.error('Error starting monitoring:', error);
       throw error;
     }
   }
@@ -111,44 +79,33 @@ export class MonitoringService {
 
       session.status = 'ended';
       session.endTime = new Date().toISOString();
-
-      // End session in database
-      await api.post(`/api/monitoring/${sessionId}/end`);
-
-      // Disconnect from signaling server
-      this.signalingService.disconnect();
-
-      // Remove session from local storage
       this.sessions.delete(sessionId);
-      console.log(`Ended monitoring session ${sessionId}`);
+      
+      console.log('Ended monitoring session:', sessionId);
     } catch (error) {
       console.error('Error ending monitoring:', error);
       throw error;
     }
   }
 
-  public getSession(sessionId: string): MonitoringSession | undefined {
-    return this.sessions.get(sessionId);
+  public getActiveSessions(): MonitoringSession[] {
+    return Array.from(this.sessions.values()).filter(
+      session => session.status === 'active'
+    );
   }
 
-  public async getAllSessions(): Promise<MonitoringSession[]> {
-    try {
-      const response = await api.get('/api/monitoring/active');
-      const sessions = response.data;
-      this.sessions.clear();
-      sessions.forEach((session: MonitoringSession) => {
-        this.sessions.set(session.id, session);
-      });
-      return sessions;
-    } catch (error) {
-      console.error('Error fetching sessions:', error);
-      return Array.from(this.sessions.values());
-    }
+  private getCurrentUserId(): string {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.uid || '';
   }
 
-  public async getActiveSessions(): Promise<MonitoringSession[]> {
-    const sessions = await this.getAllSessions();
-    return sessions.filter(session => session.status === 'active');
+  private getCurrentUserName(): string {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.displayName || 'Student';
+  }
+
+  private generateSessionId(): string {
+    return '-' + Math.random().toString(36).substr(2, 9);
   }
 
   public addViolation(sessionId: string, violation: Violation): void {
@@ -168,7 +125,14 @@ export class MonitoringService {
   }
 
   private handleStream(stream: MediaStream): void {
-    this.streamHandlers.forEach(handler => handler(stream));
+    console.log('Handling stream:', stream);
+    this.streamHandlers.forEach(handler => {
+      try {
+        handler(stream);
+      } catch (error) {
+        console.error('Error in stream handler:', error);
+      }
+    });
   }
 
   public async setupTeacherConnection(sessionId: string): Promise<void> {
@@ -247,6 +211,14 @@ export class MonitoringService {
         sessionId: sessionId,
         targetSessionId: sessionId
       });
+
+      // Set up a timeout to handle connection failure
+      setTimeout(() => {
+        if (this.signalingService.peerConnection?.connectionState !== 'connected') {
+          console.error('Connection timeout - stream not received');
+          this.signalingService.peerConnection?.restartIce();
+        }
+      }, 10000);
     } catch (error) {
       console.error('Error in setupTeacherConnection:', error);
       throw error;
@@ -310,77 +282,6 @@ export class MonitoringService {
     return Array.from(this.sessions.values());
   }
 
-  // Start monitoring session
-  public async startMonitoringSession(examId: string): Promise<MonitoringSession> {
-    try {
-      // Check if a session already exists for this exam
-      const existingSession = Array.from(this.sessions.values()).find(
-        session => session.examId === examId && session.status === 'active'
-      );
-
-      if (existingSession) {
-        console.log('Session already exists for this exam:', existingSession.id);
-        return existingSession;
-      }
-
-      // Check if signaling server is available
-      const isServerAvailable = await this.checkSignalingServer();
-      if (!isServerAvailable) {
-        throw new Error('Signaling server is not available');
-      }
-
-      // Get user media
-      const localStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false
-      });
-
-      // Create peer connection and get offer
-      this.signalingService.createPeerConnection();
-      const offer = await this.signalingService.peerConnection.createOffer();
-      await this.signalingService.peerConnection.setLocalDescription(offer);
-
-      // Create monitoring session in database
-      const response = await api.post(`/api/monitoring/${examId}/start`, {
-        examId,
-        streamUrl: localStream.id,
-        studentId: this.getCurrentUserId(),
-        studentName: this.getCurrentUserName(),
-        peerId: this.signalingService.peerConnection.localDescription?.sdp
-      });
-
-      if (!response.data || !response.data.id) {
-        throw new Error('Failed to create monitoring session');
-      }
-
-      const session = response.data;
-      console.log('Created monitoring session:', session);
-
-      // Store session
-      this.sessions.set(session.id, session);
-
-      // Set up signaling
-      await this.setupSignaling(session.id, localStream);
-
-      return session;
-    } catch (error) {
-      console.error('Error starting monitoring:', error);
-      throw error;
-    }
-  }
-
-  private getCurrentUserId(): string {
-    // Get current user ID from your auth system
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return user.uid || '';
-  }
-
-  private getCurrentUserName(): string {
-    // Get current user name from your auth system
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return user.displayName || 'Student';
-  }
-
   // End monitoring session
   public async endMonitoringSession(sessionId: string): Promise<void> {
     try {
@@ -407,6 +308,59 @@ export class MonitoringService {
     return Array.from(this.sessions.values()).find(
       session => session.examId === examId && session.status === 'active'
     );
+  }
+
+  public async sendStreamToServer(sessionId: string, stream: MediaStream): Promise<void> {
+    try {
+      // Convert stream to blob
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const formData = new FormData();
+        formData.append('video', blob);
+        formData.append('sessionId', sessionId);
+
+        // Send the video stream to the streaming server
+        await fetch(`http://localhost:5002/api/monitoring/${sessionId}/stream`, {
+          method: 'POST',
+          body: formData
+        });
+      };
+
+      // Start recording
+      mediaRecorder.start(1000); // Record in 1-second chunks
+
+      // Store the recorder for cleanup
+      this.recorders.set(sessionId, mediaRecorder);
+    } catch (error) {
+      console.error('Error sending stream to server:', error);
+      throw error;
+    }
+  }
+
+  public async getStudentStream(sessionId: string): Promise<string> {
+    try {
+      const response = await fetch(`http://localhost:5002/api/monitoring/${sessionId}/stream`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get stream URL');
+      }
+      
+      // Return the full URL for the stream
+      return `http://localhost:5002${data.streamUrl}`;
+    } catch (error) {
+      console.error('Error getting student stream:', error);
+      throw error;
+    }
   }
 }
 

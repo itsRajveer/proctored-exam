@@ -45,16 +45,6 @@ export class SignalingService {
           this.isConnected = true;
           this.reconnectAttempts = 0;
           clearTimeout(timeout);
-          
-          // Send initial connection message
-          this.sendMessage({
-            type: 'connect',
-            sessionId: sessionId,
-            role: 'teacher'
-          }).catch(error => {
-            console.error('Error sending initial connection message:', error);
-          });
-          
           resolve();
         };
 
@@ -89,7 +79,14 @@ export class SignalingService {
               break;
             case 'ice-candidate':
               if (message.candidate && message.candidate.candidate) {
-                this.handleCandidate(message.candidate);
+                // Ensure the candidate has all required fields
+                const candidateData = {
+                  candidate: message.candidate.candidate,
+                  sdpMid: message.candidate.sdpMid || '0',
+                  sdpMLineIndex: message.candidate.sdpMLineIndex || 0,
+                  usernameFragment: message.candidate.usernameFragment
+                };
+                this.handleCandidate(candidateData);
               } else {
                 console.warn('Received ICE candidate message without valid candidate data:', message);
               }
@@ -137,7 +134,8 @@ export class SignalingService {
             candidate: {
               candidate: event.candidate.candidate,
               sdpMid: event.candidate.sdpMid || '0',
-              sdpMLineIndex: event.candidate.sdpMLineIndex || 0
+              sdpMLineIndex: event.candidate.sdpMLineIndex || 0,
+              usernameFragment: event.candidate.usernameFragment
             },
             sessionId: this.sessionId,
             targetSessionId: this.sessionId
@@ -195,16 +193,12 @@ export class SignalingService {
         await this.connect(sessionId);
       }
 
-      console.log('Current sessionId before sending offer:', this.sessionId);
-      if (!this.sessionId) {
-        throw new Error('Session ID not initialized. Call connect(sessionId) before sending messages.');
-      }
-
+      console.log('Sending offer to student:', sessionId);
       this.sendMessage({
         type: 'offer',
         offer: offer,
         sessionId: this.sessionId,
-        targetSessionId: this.sessionId
+        targetSessionId: sessionId
       });
     } catch (error) {
       console.error('Error setting up teacher connection:', error);
@@ -252,6 +246,7 @@ export class SignalingService {
       });
     } catch (error) {
       console.error('Error handling offer:', error);
+      throw error;
     }
   }
 
@@ -304,11 +299,16 @@ export class SignalingService {
       const iceCandidate = new RTCIceCandidate({
         candidate: candidate.candidate,
         sdpMid: candidate.sdpMid || '0',
-        sdpMLineIndex: candidate.sdpMLineIndex || 0
+        sdpMLineIndex: candidate.sdpMLineIndex || 0,
+        usernameFragment: candidate.usernameFragment
       });
 
-      await this.peerConnection.addIceCandidate(iceCandidate);
-      console.log('Successfully added ICE candidate');
+      try {
+        await this.peerConnection.addIceCandidate(iceCandidate);
+        console.log('Successfully added ICE candidate');
+      } catch (error) {
+        console.error('Error adding ICE candidate:', error);
+      }
     } catch (error) {
       console.error('Error handling candidate:', error);
     }

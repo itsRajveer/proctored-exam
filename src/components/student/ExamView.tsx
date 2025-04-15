@@ -250,39 +250,61 @@ export const ExamView: React.FC = () => {
           return;
         }
 
-        // Get user media first
+        // Get user media with higher quality settings
         const localStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 15 }
+          },
           audio: false
         });
 
-        // Set up local video element
+        // Set up local video element with proper settings
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = localStream;
-          await localVideoRef.current.play();
+          localVideoRef.current.muted = true; // Mute local video
+          await localVideoRef.current.play().catch(error => {
+            console.error('Error playing local video:', error);
+          });
         }
 
         // Start monitoring session
         const session = await monitoringServiceInstance.startMonitoringSession(exam.id);
         sessionIdRef.current = session.id;
-        
-        // Set up signaling
-        await monitoringServiceInstance.setupSignaling(session.id, localStream);
 
-        // Set up stream handler
-        const streamHandler = (stream: MediaStream) => {
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = stream;
-            remoteVideoRef.current.play().catch(error => {
-              console.error('Error playing remote video:', error);
-            });
+        // Initialize MediaRecorder with optimized settings
+        const mediaRecorder = new MediaRecorder(localStream, {
+          mimeType: 'video/webm;codecs=vp8',
+          videoBitsPerSecond: 500000 // 500kbps for better quality/bandwidth balance
+        });
+
+        const chunks = [];
+        mediaRecorder.ondataavailable = async (event) => {
+          if (event.data.size > 0) {
+            chunks.push(event.data);
+            // Send chunk immediately when it's available
+            const blob = new Blob([event.data], { type: 'video/webm' });
+            const formData = new FormData();
+            formData.append('video', blob);
+            formData.append('sessionId', session.id);
+
+            try {
+              await fetch(`http://localhost:5002/api/monitoring/${session.id}/stream`, {
+                method: 'POST',
+                body: formData
+              });
+            } catch (error) {
+              console.error('Error sending stream chunk:', error);
+            }
           }
         };
 
-        monitoringServiceInstance.onStream(streamHandler);
+        // Start recording in smaller chunks for more frequent updates
+        mediaRecorder.start(2000); // Send chunks every 2 seconds
 
         return () => {
-          monitoringServiceInstance.offStream(streamHandler);
+          mediaRecorder.stop();
           localStream.getTracks().forEach(track => track.stop());
           if (sessionIdRef.current) {
             monitoringServiceInstance.endMonitoring(sessionIdRef.current);
@@ -292,7 +314,7 @@ export const ExamView: React.FC = () => {
         console.error('Error initializing monitoring:', error);
         toast({
           title: "Error",
-          description: "Failed to initialize camera monitoring",
+          description: "Failed to initialize camera monitoring. Please ensure camera access is granted.",
           variant: "destructive",
         });
       }
