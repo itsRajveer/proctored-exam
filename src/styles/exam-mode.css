@@ -1,0 +1,26 @@
+/* Exam mode styles */
+body.exam-mode .sidebar {
+  display: none !important;
+}
+
+body.exam-mode .topbar {
+  display: none !important;
+}
+
+body.exam-mode .main-content {
+  margin-left: 0 !important;
+  margin-top: 0 !important;
+  width: 100% !important;
+  height: 100vh !important;
+  padding: 0 !important;
+}
+
+body.exam-mode .container {
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+body.exam-mode {
+  overflow: hidden;
+} 

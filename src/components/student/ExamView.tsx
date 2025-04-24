@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import "@/styles/exam-mode.css";
 import { 
   AlertTriangle, 
   ChevronLeft, 
@@ -74,6 +75,13 @@ export const ExamView: React.FC = () => {
           if (response.submission && response.submission.answers) {
             setAnswers(response.submission.answers);
           }
+
+          // Automatically trigger fullscreen when exam data is loaded
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            document.body.classList.add('exam-mode');
+            setIsFullScreen(true);
+          }
         } else {
           throw new Error('Invalid exam data received');
         }
@@ -127,6 +135,16 @@ export const ExamView: React.FC = () => {
     };
   }, [exam, timeRemaining]);
 
+  const handleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      document.body.classList.add('exam-mode');
+      setIsFullScreen(true);
+    } else {
+      setShowFullScreenExitDialog(true);
+    }
+  };
+
   useEffect(() => {
     const handleFullScreenChange = () => {
       const isCurrentlyFullScreen = !!document.fullscreenElement;
@@ -134,31 +152,30 @@ export const ExamView: React.FC = () => {
       
       if (!isCurrentlyFullScreen && isFullScreen) {
         setShowFullScreenExitDialog(true);
+        document.body.classList.remove('exam-mode');
+      } else if (isCurrentlyFullScreen) {
+        document.body.classList.add('exam-mode');
       }
     };
-    
-    document.addEventListener("fullscreenchange", handleFullScreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullScreenChange);
+
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+    };
   }, [isFullScreen]);
 
-  const toggleFullScreen = async () => {
-    if (!document.fullscreenElement) {
-      try {
-        await document.documentElement.requestFullscreen();
-        setIsFullScreen(true);
-        // Hide sidebar and header
-        document.body.classList.add('exam-mode');
-      } catch (error) {
-        console.error("Error attempting to enable full-screen mode:", error);
-      }
-    } else {
-      if (document.exitFullscreen) {
-        await document.exitFullscreen();
-        setIsFullScreen(false);
-        // Show sidebar and header
-        document.body.classList.remove('exam-mode');
-      }
+  const handleReturnToFullscreen = () => {
+    document.documentElement.requestFullscreen();
+    setShowFullScreenExitDialog(false);
+  };
+
+  const handleSubmitFromDialog = () => {
+    setShowFullScreenExitDialog(false);
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      document.body.classList.remove('exam-mode');
     }
+    setShowSubmitDialog(true);
   };
 
   const formatTime = (seconds: number): string => {
@@ -193,6 +210,24 @@ export const ExamView: React.FC = () => {
     if (!exam || !id) return;
 
     try {
+      // Stop camera stream and end monitoring
+      if (localVideoRef.current?.srcObject) {
+        const stream = localVideoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        localVideoRef.current.srcObject = null;
+      }
+      
+      // End monitoring session
+      if (sessionIdRef.current) {
+        await monitoringServiceInstance.endMonitoring(sessionIdRef.current);
+      }
+
+      // Exit fullscreen before submitting
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+        document.body.classList.remove('exam-mode');
+      }
+      
       await examSubmissionService.submitExam(id, answers);
       toast({
         title: "Exam Submitted",
@@ -364,7 +399,7 @@ export const ExamView: React.FC = () => {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={toggleFullScreen}
+                onClick={handleFullScreen}
                 title={isFullScreen ? "Exit fullscreen" : "Enter fullscreen"}
               >
                 {isFullScreen ? (
@@ -614,10 +649,10 @@ export const ExamView: React.FC = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowFullScreenExitDialog(false)}>
+            <AlertDialogCancel onClick={handleReturnToFullscreen}>
               Return to Fullscreen
             </AlertDialogCancel>
-            <AlertDialogAction onClick={() => setShowSubmitDialog(true)}>
+            <AlertDialogAction onClick={handleSubmitFromDialog}>
               Submit Exam
             </AlertDialogAction>
           </AlertDialogFooter>

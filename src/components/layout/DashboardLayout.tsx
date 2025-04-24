@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Navigate, Outlet, Link, useLocation } from "react-router-dom";
 import {
@@ -163,19 +162,23 @@ export const DashboardLayout = () => {
 
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <Navbar />
+      <div className="topbar">
+        <Navbar />
+      </div>
       <div className="flex flex-1">
         <SidebarProvider>
-          <Sidebar className="border-r">
-            <SidebarContent className="pt-6">
-              <div className="flex items-center gap-2 px-4 pb-6">
-                <BookOpen className="h-6 w-6 text-primary" />
-                <span className="text-lg font-semibold">ExamEye</span>
-              </div>
-              {user.role === "student" ? <StudentMenu /> : <TeacherMenu />}
-            </SidebarContent>
-          </Sidebar>
-          <div className="flex-1 bg-background/95">
+          <div className="sidebar">
+            <Sidebar className="border-r">
+              <SidebarContent className="pt-6">
+                <div className="flex items-center gap-2 px-4 pb-6">
+                  <BookOpen className="h-6 w-6 text-primary" />
+                  <span className="text-lg font-semibold">ExamEye</span>
+                </div>
+                {user.role === "student" ? <StudentMenu /> : <TeacherMenu />}
+              </SidebarContent>
+            </Sidebar>
+          </div>
+          <div className="main-content flex-1 bg-background/95">
             <div className="container max-w-7xl px-4 py-6 md:px-6 lg:py-8">
               {/* Make SidebarTrigger more prominent */}
               <div className="mb-6 flex items-center">

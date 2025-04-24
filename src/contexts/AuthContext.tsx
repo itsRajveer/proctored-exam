@@ -109,10 +109,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const data = await response.json();
-      const { token, user: userData } = data;
       
+      if (!data.customToken) {
+        throw new Error("No custom token received from server");
+      }
+
       // Sign in with Firebase using the custom token
-      const userCredential = await signInWithCustomToken(auth, token);
+      const userCredential = await signInWithCustomToken(auth, data.customToken);
       const firebaseUser = userCredential.user;
       
       // Get the ID token and store it
@@ -122,10 +125,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Create user object
       const user: User = {
         id: firebaseUser.uid,
-        name: userData.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        name: data.user.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
         email: firebaseUser.email || '',
-        role: userData.role || 'teacher',
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User')}`,
+        role: data.user.role || 'student',
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.user.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User')}`,
       };
       
       // Save user to state and localStorage
@@ -135,6 +138,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
       return user;
     } catch (error) {
+      console.error('Login error:', error);
       setLoading(false);
       throw error;
     }
