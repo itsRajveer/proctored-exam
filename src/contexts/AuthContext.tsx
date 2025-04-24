@@ -42,6 +42,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (firebaseUser) {
         // Get the ID token
         const token = await firebaseUser.getIdToken();
+        localStorage.setItem('authToken', token); // Store the token
         
         // Get user data from localStorage or create new user data
         const savedUser = localStorage.getItem("user");
@@ -82,6 +83,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else {
         setUser(null);
         localStorage.removeItem("user");
+        localStorage.removeItem("authToken"); // Remove token on logout
       }
       setLoading(false);
     });
@@ -103,34 +105,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Login failed");
+        throw new Error("Login failed");
       }
 
       const data = await response.json();
+      const { token, user: userData } = data;
       
       // Sign in with Firebase using the custom token
-      const userCredential = await signInWithCustomToken(auth, data.customToken);
+      const userCredential = await signInWithCustomToken(auth, token);
       const firebaseUser = userCredential.user;
       
-      // Save user to state and localStorage
-      const userData = {
+      // Get the ID token and store it
+      const idToken = await firebaseUser.getIdToken();
+      localStorage.setItem('authToken', idToken);
+      
+      // Create user object
+      const user: User = {
         id: firebaseUser.uid,
-        name: data.user.name,
-        email: data.user.email,
-        role: data.user.role,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.user.name)}`,
+        name: userData.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        email: firebaseUser.email || '',
+        role: userData.role || 'teacher',
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User')}`,
       };
       
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
+      // Save user to state and localStorage
+      setUser(user);
+      localStorage.setItem("user", JSON.stringify(user));
       
-      return userData;
-    } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
-    } finally {
       setLoading(false);
+      return user;
+    } catch (error) {
+      setLoading(false);
+      throw error;
     }
   };
 

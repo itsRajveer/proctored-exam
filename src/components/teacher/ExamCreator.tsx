@@ -17,6 +17,7 @@ import {
   Users,
   X,
   AlertTriangle,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +98,9 @@ export const ExamCreator: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [examDuration, setExamDuration] = useState(60);
+
+  // State for file upload
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Setup form for better form handling
   const examForm = useForm({
@@ -355,6 +359,80 @@ export const ExamCreator: React.FC = () => {
 
   const viewExamResults = (examId: string) => {
     navigate(`/dashboard/exam/${examId}/review`);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setSelectedFile(file);
+  };
+
+  const handleUploadQuestions = async () => {
+    if (!selectedFile) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No file selected.',
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    const token = localStorage.getItem('authToken');
+    console.log('Token from localStorage:', token); // Debug log
+
+    if (!token) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No token found. Please log in again.',
+      });
+      return;
+    }
+
+    try {
+      console.log('Making request to upload-mcq endpoint...'); // Debug log
+      const response = await fetch('http://localhost:5000/exams/upload-mcq', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData,
+      });
+
+      console.log('Response status:', response.status); // Debug log
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response:', errorData); // Debug log
+        throw new Error(errorData.error || 'Failed to upload file');
+      }
+
+      const data = await response.json();
+      console.log('Success response:', data); // Debug log
+
+      const newQuestions = data.questions.map((q: any, index: number) => ({
+        id: `q${Date.now()}-${index}`,
+        text: q.text,
+        type: 'multiple-choice',
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        points: q.points || 5, // Use the points from the parsed question, default to 5 if not specified
+      }));
+      setQuestions([...questions, ...newQuestions]);
+      setSelectedFile(null);
+      toast({
+        title: 'Questions Added',
+        description: 'Questions from the document have been added.',
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to upload and process the file.',
+      });
+    }
   };
 
   if (loading) {
@@ -927,6 +1005,32 @@ export const ExamCreator: React.FC = () => {
                       </RadioGroup>
                     </div>
                   )}
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-1">
+                        <Input
+                          type="file"
+                          accept=".doc,.docx"
+                          onChange={handleFileChange}
+                          className="cursor-pointer"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleUploadQuestions}
+                        disabled={!selectedFile}
+                        className="flex items-center"
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload MCQ Questions
+                      </Button>
+                    </div>
+                    {selectedFile && (
+                      <p className="text-sm text-muted-foreground">
+                        Selected file: {selectedFile.name}
+                      </p>
+                    )}
+                  </div>
                   
                   <Button
                     onClick={addQuestion}
